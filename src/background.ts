@@ -15,17 +15,23 @@ function getPrompt(content: any[], title: string) {
 
     return prompt;
 }
+let lastController: AbortController | null = null
 Browser.runtime.onConnect.addListener((port) => {
     console.debug('connected', port)
     if (port.name === 'BilibiliSUMMARY') {
-        port.onMessage.addListener(async (job) => {
+        port.onMessage.addListener(async (job, port) => {
             if (job.type === 'getSummary') {
                 const question = getPrompt(job.content, job.title)
-                console.log(question, '????')
+                console.log(question)
                 // //@ts-ignore
                 try {
+                    if(lastController) {
+                        lastController.abort()
+                    }
+                    lastController = new AbortController()
                     let result = await chatGptWebProvider.ask(question,{
-                        deleteConversation: false,
+                        deleteConversation: true,
+                        signal: lastController!.signal,
                         onMessage: (message) => {
                             console.log(message)
                         }

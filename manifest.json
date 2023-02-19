@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "CRXJS Vue Vite Example",
+    "name": "BilibiliSummary",
     "version": "1.0.0",
     "action": { "default_popup": "index.html" },
     "host_permissions": ["https://*.openai.com/"],

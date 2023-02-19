@@ -3,29 +3,11 @@ import { SubTitle, Body } from '../types'
 import { ref, onMounted, computed } from 'vue'
 import Browser from 'webextension-polyfill'
 const port = Browser.runtime.connect({name: 'BilibiliSUMMARY'})
-const content = ref('')
-const state = ref(0); 
-const isSummary = ref(false)
+const content = ref('点击总结按钮开始总结')
 const subtitle = ref<Body[]>([])
-const hasSubtitle = computed(() => {
-  return subtitle.value.length > 0
-})
-const hasSummary = ref(false);
-
-// seconds to minutes with format 00:00 or 00:00:00 with round number
-const secondToMinute = (seconds: number) => {
-  const date = new Date(seconds * 1000)
-  const hh = date.getUTCHours()
-  const mm = date.getUTCMinutes()
-  const ss = date.getSeconds()
-  if (hh) {
-    return `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`
-  }
-  return `${mm.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`
-}
+const contentStyle = ref('tips');
 
 const startSubtitle = () => {
-  console.log('startSubtitle')
   const el = document.querySelector('#bilibili-player > div > div > div.bpx-player-primary-area > div.bpx-player-video-area > div.bpx-player-control-wrap > div.bpx-player-control-entity > div.bpx-player-control-bottom > div.bpx-player-control-bottom-right > div.bpx-player-ctrl-btn.bpx-player-ctrl-subtitle > div.bpx-player-ctrl-btn-icon > span')
   //@ts-ignore
   el.click()
@@ -46,9 +28,10 @@ onMounted(() => {
     const { type, content: answer} = result;
     if (type === 'summary') {
       content.value = answer;
-      hasSummary.value = true;
+      contentStyle.value = 'summary'
     } else if( type === 'error') {
-      content.value = '无api权限, 请登录openapi'
+      contentStyle.value = 'tips'
+      content.value = '发生错误，可能是一下情况。无api权限, 需要登录chatgpt,然后刷新页面;chatgpt限制了50次/hour,需要等待。'
     }
   })
 
@@ -58,44 +41,34 @@ onMounted(() => {
 })
 
 const summary = () => {
-  isSummary.value = true
-  if (!hasSummary.value) {
+  content.value = '取消之前的任务，正在总结中...'
+  contentStyle.value = 'tips'
+  startSubtitle()
+  setTimeout(() => {
     port.postMessage({
       type: 'getSummary',
       content: subtitle.value,
       title: document.title
     })
-  }
+  }, 1000)
 }
-
-const handleSubtitle = () => {
-  isSummary.value = false
-}
-
-
 </script>
 <template>
   <div class="summary-container">
     <div class="header">
+      <div class="main">
         <div class="brand">
-        视频总结
-      </div>
-      <div class="actions">
-        <div class="action" @click="summary">总结</div>
-        <div class="action" @click="handleSubtitle">字幕</div>
+          视频总结
+        </div>
+        <div class="actions">
+          <div class="action" @click="summary">总结</div>
+        </div>
       </div>
     </div>
+    <div class="warning">本功能频繁使用可能导致账户封禁，自己玩脱了,概不负责。怕的话用小号</div>
     <div class="content">
-      <div class="summary" v-if="isSummary">
+      <div :class="contentStyle">
           {{ content }}
-      </div>
-      <div class="subtitle" v-else >
-        <div class="item" v-for="item in subtitle">
-          <div class="time">{{ `${secondToMinute(item.from)}--${secondToMinute(item.to)}` }}</div>
-          <div class="text">
-            {{ item.content }}
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -110,74 +83,72 @@ const handleSubtitle = () => {
   align-items: center;
   width: auto;
   background-color: #f1f2f3;
-  margin-bottom: 10px;
   border-radius: 6px;
   user-select: none;
   .header {
     display: flex;
-    height: 44px;
+    height: 52px;
     width: 100%;
-    flex-direction: row;
+    flex-direction: column;
     align-content: center;
     justify-content: space-between;
     align-items: center;
     
-    .brand {
+    .main {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      .brand {
       padding-left: 16px;
       font-size: 16px;
       font-weight: 500;
       color: #18191c;
-    }
-    .actions {
-      padding-right: 17px;
-      cursor: pointer;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      .action {
-        margin-left: 16px;
-        font-size: 14px;
-        font-weight: 500;
-        color: #18191c;
+
+      }
+      .actions {
+        padding-right: 17px;
         cursor: pointer;
-        
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        .action {
+          //button-small-primary
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 24px;
+          width: 50px;
+          border-radius: 4px;
+          background-color: #1f7fde;
+          margin-left: 16px;
+          font-size: 14px;
+          font-weight: 500;
+          color: #eeeff2;
+          cursor: pointer;
+          
+        }
       }
     }
+
+  }
+  .warning {
+      color: red;
+      font-size: 7px;
+      text-align: center;
+      width: 100%;
+      padding: 2px;
+      background-color: #fff;
   }
   .content {
     display: flex;
     width: 100%;
-    min-height: 200px;
+    min-height: 50px;
     max-height: 650px;
     background-color: #fff;
     overflow-y: auto;
-    .subtitle {
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-      .item {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        margin-bottom: 10px;
-        width: 100%;
-        .time {
-          width: 130px;
-          margin-left: 10px;
-          font-size: 14px;
-          font-weight: 500;
-          color: #18191c;
-        }
-        .text {
-          font-size: 14px;
-          font-weight: 500;
-          color: #18191c;
-        }
-      }
-      &:first-child {
-        margin-top: 10px;
-      }
-    }
     .summary {
       display: flex;
       flex-direction: column;
@@ -188,6 +159,17 @@ const handleSubtitle = () => {
       font-weight: 500;
       color: #18191c;
       overflow-y: auto;
+    }
+    .tips {
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+      width: 100%;
+      height: 100%;
+      font-size: 18px;
+      font-weight: 700;
+      color: #18191c;
+      text-align: center;
     }
 
   }
