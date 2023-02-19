@@ -8,7 +8,7 @@ B站视频总结：视频太长不看了给你节约点时间。
 点击总结，使用chatgpt总结
 ## 截图
 
-![材料生成]()
+![运行截图](https://raw.githubusercontent.com/lxfater/BilibiliSummary/main/screenShot/1676802769323.png)
 
 ## 构建
 1. 安装nodejs
