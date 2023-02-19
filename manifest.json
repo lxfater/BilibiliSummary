@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "CRXJS Vue Vite Example",
+    "version": "1.0.0",
+    "action": { "default_popup": "index.html" },
+    "host_permissions": ["https://*.openai.com/"],
+    "content_scripts": [
+      {
+        "matches": ["https://www.bilibili.com/video/*"],
+        "js": ["src/document_start.ts"],
+        "run_at": "document_start"
+      },
+      {
+        "matches": [ "https://www.bilibili.com/video/*" ],
+        "js": [ "src/content-scripts/content.ts"],
+        "run_at": "document_start"
+      }
+    ],
+    "background": {
+      "service_worker": "src/background.ts",
+      "type": "module"
+    }
+  }
+
+ 
