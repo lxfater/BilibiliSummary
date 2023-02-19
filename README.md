@@ -1,4 +1,4 @@
-# Learning-By-GPT
+# BilibiliSummary
 A chrome extension helps you summary video on bilibili.
 
 B站视频总结：视频太长不看了给你节约点时间。
