@@ -7,17 +7,17 @@
     "content_scripts": [
       {
         "matches": ["https://www.bilibili.com/video/*"],
-        "js": ["src/document_start.ts"],
+        "js": ["src/inject/injecter.ts"],
         "run_at": "document_start"
       },
       {
         "matches": [ "https://www.bilibili.com/video/*" ],
-        "js": [ "src/content-scripts/content.ts"],
+        "js": [ "src/content-scripts/main.ts"],
         "run_at": "document_start"
       }
     ],
     "background": {
-      "service_worker": "src/background.ts",
+      "service_worker": "src/background/index.ts",
       "type": "module"
     }
   }
