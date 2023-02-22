@@ -1,19 +1,26 @@
 import { createApp } from "vue";
 import App from "./App.vue";
+import {  } from 'vant';
+import { NavBar,Col, Row,Icon, Button } from 'vant';
+import 'vant/lib/index.css';
+import { createPinia } from 'pinia'
 const app = createApp(App)
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
-
-app.use(ElementPlus)
+const pinia = createPinia()
+app
+.use(Button)
+.use(pinia)
+.use(NavBar)
+.use(Col)
+.use(Row)
+.use(Icon);
 
 window.onload = async () => {
   const el = document.querySelector('#danmukuBox');
   if (el) {
     el.insertAdjacentHTML(
       'beforebegin',
-      '<div id="crx-app" style="pointer-events:all" ></div>',
+      '<div id="summary-app-dkfjslkf" style="pointer-events:all" ></div>',
     );
-    
-    app.mount('#crx-app');
+    app.mount('#summary-app-dkfjslkf');
   }
 }

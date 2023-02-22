@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { crx } from '@crxjs/vite-plugin'
 import { resolve } from 'path'
 import manifest from './manifest.json' // Node 14 & 16
-
+import svgLoader from 'vite-svg-loader'
 // https://vitejs.dev/config/
 export default defineConfig({
   build: {
@@ -17,6 +17,7 @@ export default defineConfig({
   },
   plugins: [
     vue(),
+    svgLoader(),
     crx({ manifest }),
   ],
 })

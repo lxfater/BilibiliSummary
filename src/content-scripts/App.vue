@@ -1,88 +1,90 @@
 <script setup lang="ts">
-import { SubTitle, Body } from '../types'
 import { ref, onMounted, computed } from 'vue'
-import Browser from 'webextension-polyfill'
-const port = Browser.runtime.connect({name: 'BilibiliSUMMARY'})
-const content = ref('点击总结按钮开始总结')
-const subtitle = ref<Body[]>([])
-const contentStyle = ref('tips');
+import Setting from './pages/Setting.vue';
+import Help from './pages/Help.vue';
+import Subtitle from './pages/Subtitle.vue';
+import Summary from './pages/Summary.vue';
+import { titleMap } from './lang'
+import { urlChange } from './utils'
+import { useStore } from './state';
+import { port } from './utils';
+const components = {
+  Summary,
+  Setting,
+  Help,
+  Subtitle
+}
+const curretView = ref('Summary')
+const to = (path: string) => {
+  curretView.value = path
+}
+const title = computed(() => {
 
-const fetchBilibiliSubtitle = () => {
-  const selector = '#bilibili-player > div > div > div.bpx-player-primary-area > div.bpx-player-video-area > div.bpx-player-control-wrap > div.bpx-player-control-entity > div.bpx-player-control-bottom > div.bpx-player-control-bottom-right > div.bpx-player-ctrl-btn.bpx-player-ctrl-subtitle > div.bpx-player-ctrl-btn-icon > span'
-  const el = document.querySelector(selector)
-  return new Promise(() => {
-    if(el) {
-        //@ts-ignore
-      el.click()
-      setTimeout(() => {
-        //@ts-ignore
-        el.click()
-        return true
-      },1000)
-    } else {
-      return false
-    }
-  })
+  return titleMap[curretView.value as keyof typeof titleMap]
+})
+const iconColor = (path: string) => {
+  if (path === curretView.value) {
+    return '#1989fa'
+  } else {
+    return '#000'
+  }
+}
 
+const store = useStore();
+urlChange(() => {
+  store.summaryState = 'fetchable'
+})
+const handleBackgroundMessage = (result: { type: any; content: any; }) => {
+  const { type, content } = result;
+  if (type === 'summary') {
+    store.summaryState = 'fetched'
+    store.summary = content;
+  } else if (type === 'error') {
+    store.summaryState = content
+  }
 }
 onMounted(() => {
-  window.addEventListener('message', function(event) {
-    console.log('content-scripts', event.data)
-    if (event.data.type === 'getSummary') {
-       let data = JSON.parse(event.data.content) as SubTitle
-       subtitle.value = data.body
-    }
-  });
-  port.onMessage.addListener((result) => {
-    const { type, content: answer} = result;
-    if (type === 'summary') {
-      content.value = answer;
-      contentStyle.value = 'summary'
-    } else if( type === 'error') {
-      contentStyle.value = 'tips'
-      content.value = '发生错误，可能是一下情况。无api权限, 需要登录chatgpt,然后刷新页面;chatgpt限制了50次/hour,需要等待。'
-    }
-  })
-
-  setTimeout(() => {
-    fetchBilibiliSubtitle()
-  }, 1000)
+  port.onMessage.addListener(handleBackgroundMessage)
 })
 
-const summary = async () => {
-  content.value = '取消之前的任务，正在总结中...'
-  contentStyle.value = 'tips'
-  let result = fetchBilibiliSubtitle();
-  setTimeout(() => {
-    port.postMessage({
-      type: 'getSummary',
-      content: subtitle.value,
-      title: document.title
-    })
-  }, 1000)
-}
 </script>
 <template>
-  <div class="summary-container">
-    <div class="header">
-      <div class="main">
-        <div class="brand">
-          视频总结
+  <div>
+    <van-nav-bar :left-text="title" class="navbar" :clickable="false">
+      <template #right>
+        <div class="action">
+          <van-icon name="exchange" size="22" :color="`${iconColor('Summary')}`" @click="to('Summary')" />
+          <van-icon name="setting-o" size="22" :color="`${iconColor('Setting')}`" @click="to('Setting')" />
+          <van-icon name="question-o" size="22" :color="`${iconColor('Help')}`" @click="to('Help')" />
         </div>
-        <div class="actions">
-          <div class="action" @click="summary">总结</div>
-        </div>
-      </div>
-    </div>
-    <div class="warning">本功能频繁使用可能导致账户封禁，自己玩脱了,概不负责。怕的话用小号</div>
-    <div class="content">
-      <div :class="contentStyle">
-          {{ content }}
-      </div>
+      </template>
+    </van-nav-bar>
+    <div class="container">
+      <component :is="components[curretView as keyof typeof components]"></component>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
+.navbar {
+  border: 2px solid #e5e5e5;
+  border-radius: 4px 4px 0 0;
 
+  .action {
+    display: flex;
+    width: 100px;
+    justify-content: space-evenly;
+  }
+}
+
+.container {
+  padding: 10px;
+  border-bottom: 2px solid #e5e5e5;
+  border-right: 2px solid #e5e5e5;
+  border-left: 2px solid #e5e5e5;
+  border-radius: 0 0 4px 4px;
+  min-height: 300px;
+  max-height: 500px;
+  margin-bottom: 10px;
+}
 </style>

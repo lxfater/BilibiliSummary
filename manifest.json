@@ -3,13 +3,8 @@
     "name": "BilibiliSummary",
     "version": "1.0.0",
     "action": { "default_popup": "index.html" },
-    "host_permissions": ["https://*.openai.com/"],
+    "host_permissions": ["https://*.openai.com/", "https://*.bilibili.com/"],
     "content_scripts": [
-      {
-        "matches": ["https://www.bilibili.com/video/*"],
-        "js": ["src/inject/injecter.ts"],
-        "run_at": "document_start"
-      },
       {
         "matches": [ "https://www.bilibili.com/video/*" ],
         "js": [ "src/content-scripts/main.ts"],

@@ -1,0 +1,1 @@
+export { default as ChatGptWebProvider } from "./provider/chatGptWeb";

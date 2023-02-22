@@ -2,13 +2,14 @@
 export function getSummaryPrompt(title: string,transcript: any) {
     return `标题: "${title
       .replace(/\n+/g, " ")
-      .trim()}"\n视频字幕: "${truncateTranscript(transcript)
+      .trim()}"\ntranscript: "${truncateTranscript(transcript)
       .replace(/\n+/g, " ")
-      .trim()}"\n请用中文进行视频总结:`;
+      .trim()}"\nsummary in chinese:`;
+  
   }
   
   // Seems like 15,000 bytes is the limit for the prompt
-  const limit = 7000; // 1000 is a buffer
+  const limit = 5000; // 1000 is a buffer
   
   export function getChunckedTranscripts(textData: { text: any; index: any; }[], textDataOriginal: any[]) {
   
