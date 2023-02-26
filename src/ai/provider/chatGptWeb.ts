@@ -61,7 +61,8 @@ export default class Bridge {
       "Unauthorized": "unauthorized",
       "Not Found": "notFound",
       "Unknown": "unknown",
-      "CloudFlare": "cloudFlare"
+      "CloudFlare": "cloudFlare",
+      "Only one": "onlyOne"
     }
     async fetch(path: string, options: { method: any; headers: any; body: any; signal: any; }) {
       const { method, headers, body, signal } = options;
@@ -87,6 +88,8 @@ export default class Bridge {
             return new Error(this.errorText['Unauthorized'])
         } else if(text.includes('Not Found')) {
             return new Error(this.errorText['Not Found'])
+        } else if(text.includes('Only one message')) {
+            return new Error(this.errorText['Only one'])
         }
         return new Error(this.errorText['Unknown'])
     }
@@ -142,6 +145,9 @@ export default class Bridge {
         const accessToken = await this.getToken(refreshToken);
         let text = '';
         let conversationID = ''
+        signal?.addEventListener("abort", () => {
+          this.deleteConversation(accessToken,conversationID)
+        })
         return new Promise((resolve, reject) => {
           try {
             this.fetchSSE("https://chat.openai.com/backend-api/conversation", {
@@ -167,7 +173,7 @@ export default class Bridge {
                 parent_message_id: uuidv4(),
               }),
               onMessage:(message: string) => {
-                console.debug("sse message", message);
+                // console.debug("sse message", message);
                 if (message === "[DONE]") {
                   if(deleteConversation) {
                       this.deleteConversation(accessToken,conversationID)
@@ -208,7 +214,9 @@ export default class Bridge {
         let text = '';
         let id = '';
         let conversationID = ''
-
+        signal?.addEventListener("abort", () => {
+          this.deleteConversation(accessToken,conversationID)
+        })
         const basis = {
             action: "next",
             messages: [
@@ -240,7 +248,7 @@ export default class Bridge {
               },
               body: JSON.stringify(body),
               onMessage:(message: string)  => {
-                console.debug("sse message", message);
+                // console.debug("sse message", message);
                 if (message === "[DONE]") {
                   if(deleteConversation) {
                       this.deleteConversation(accessToken,conversationID)

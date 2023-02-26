@@ -5,9 +5,10 @@ import Help from './pages/Help.vue';
 import Subtitle from './pages/Subtitle.vue';
 import Summary from './pages/Summary.vue';
 import { titleMap } from './lang'
-import { urlChange } from './utils'
+import { getBVid, urlChange } from './utils'
 import { useStore } from './state';
 import { port } from './utils';
+import Browser from 'webextension-polyfill';
 const components = {
   Summary,
   Setting,
@@ -35,18 +36,36 @@ urlChange(() => {
   store.summaryState = 'fetchable'
 })
 const handleBackgroundMessage = (result: { type: any; content: any; }) => {
-  const { type, content } = result;
+  const { type, content} = result;
   if (type === 'summary') {
+    const videoId = getBVid(window.location.href)
+    if(videoId !== content.videoId) {
+      return;
+    }
     store.summaryState = 'fetched'
-    store.summary = content;
+    store.summary = content.message;
   } else if (type === 'error') {
     store.summaryState = content
   }
 }
-onMounted(() => {
+onMounted(async () => {
   port.onMessage.addListener(handleBackgroundMessage)
-})
 
+  let result = await Browser.storage.local.get(['options'])
+  let autoFetch = true;
+  let summaryToken = 0.5;
+  if(result['options']) {
+      autoFetch = result['options'].autoFetch === true ? true : false;
+      summaryToken = result['options'].summaryToken ? result['options'].summaryToken : 50;
+      store.settings.autoFetch = autoFetch;
+      store.settings.summaryToken = summaryToken;
+  }
+
+  if (autoFetch) {
+    store.forceSummary()
+  }
+
+})
 </script>
 <template>
   <div>

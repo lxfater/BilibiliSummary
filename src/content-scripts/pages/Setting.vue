@@ -30,7 +30,6 @@ onMounted(() => {
         <van-slider v-model="summary.settings.summaryToken" integer @change="summary.changeSummaryToken"/>
       </template>
     </van-field>
-    <van-field v-model="summary.settings.fetchTimeout" type="digit" label="超时时间(分钟)" @change="summary.changeFetchTimeout"/>
     <van-field name="slider" label="清空当前缓存">
       <template #input>
         <van-button type="danger" plain size="mini" @click="summary.clearCurrentCache">清空</van-button>

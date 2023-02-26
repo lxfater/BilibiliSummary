@@ -29,8 +29,8 @@ export const useStore = defineStore('store', {
         summaryState: 'fetchable',
         settings: {
             autoFetch: true,
-            summaryToken: 0.5,
-            fetchTimeout: 5,
+            summaryToken: 50,
+            fetchTimeout: 8,
         },
         optionKey: 'options'
     }),
@@ -105,7 +105,7 @@ export const useStore = defineStore('store', {
                 },
                 'timeout': {
                     'icon': 'replay',
-                    'tips': `获取超时5分钟,点击图标重试获取${titleMap['Summary']}`,
+                    'tips': `获取超时8分钟,点击图标重试获取${titleMap['Summary']}`,
                     'action': 'forceSummary',
                     'class': ''
                 },
@@ -124,6 +124,7 @@ export const useStore = defineStore('store', {
             await this.summaryWithType('getSummary')
         },
         async summaryWithType(type:string) {
+            console.log(type)
             const videoId = getBVid(window.location.href)
             try {
                 port.postMessage({
@@ -131,7 +132,9 @@ export const useStore = defineStore('store', {
                     videoId,
                     title: document.title,
                     refreshToken: type === 'forceSummaryWithNewToken' ? true : false,
-                    force: type === 'forceSummary' ? true : false,
+                    timeout: this.settings.fetchTimeout,
+                    summaryTokenNumber: this.settings.summaryToken,
+                    force: (type === 'forceSummary') || (type === 'forceSummaryWithNewToken') ? true : false,
                 })
                 this.summaryState  = 'fetching'
             } catch (error) {
@@ -146,8 +149,9 @@ export const useStore = defineStore('store', {
             await this.summaryWithType('forceSummaryWithNewToken')
         },
         async login(){
-            window.open('https://chat.openai.com/chat', '_blank')
-            this.summaryState= 'reFetchable'
+            port.postMessage({
+                type: 'login',
+            })
         },
         cancel() {
             port.postMessage({
@@ -180,6 +184,7 @@ export const useStore = defineStore('store', {
             })
         },
         async changeAutoFetch(value:boolean) {
+            
             this.settings.autoFetch = value
             let result = await Browser.storage.local.get([this.optionKey])
             console.log(result, 'result')
@@ -209,6 +214,7 @@ export const useStore = defineStore('store', {
             }
         },
         async changeFetchTimeout(value:number) {
+            console.log(value, 'value')
             this.settings.fetchTimeout = value
             let result = await Browser.storage.local.get([this.optionKey])
             if(result[this.optionKey]) {

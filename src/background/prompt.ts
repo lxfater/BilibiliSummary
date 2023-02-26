@@ -1,17 +1,17 @@
 
-export function getSummaryPrompt(title: string,transcript: any) {
+export function getSummaryPrompt(title: string,transcript: any, limit) {
     return `标题: "${title
       .replace(/\n+/g, " ")
-      .trim()}"\ntranscript: "${truncateTranscript(transcript)
+      .trim()}"\n字幕: "${truncateTranscript(transcript,limit)
       .replace(/\n+/g, " ")
-      .trim()}"\nsummary in chinese:`;
+      .trim()}"\n中文总结:`;
   
   }
   
   // Seems like 15,000 bytes is the limit for the prompt
-  const limit = 5000; // 1000 is a buffer
+ // 1000 is a buffer
   
-  export function getChunckedTranscripts(textData: { text: any; index: any; }[], textDataOriginal: any[]) {
+  export function getChunckedTranscripts(textData: { text: any; index: any; }[], textDataOriginal: any[], limit: number) {
   
     // [Thought Process]
     // (1) If text is longer than limit, then split it into chunks (even numbered chunks) 
@@ -26,7 +26,7 @@ export function getSummaryPrompt(title: string,transcript: any) {
     if (bytes > limit) {
       // Get only even numbered chunks from textArr
       const evenTextData = textData.filter((t, i) => i % 2 === 0);
-      result = getChunckedTranscripts(evenTextData, textDataOriginal);
+      result = getChunckedTranscripts(evenTextData, textDataOriginal, limit);
     } else {
       // Check if any array items can be added to result to make it under limit but really close to it
       if (textDataOriginal.length !== textData.length) {
@@ -65,7 +65,7 @@ export function getSummaryPrompt(title: string,transcript: any) {
     
   }
   
-  function truncateTranscript(str:string) {
+  function truncateTranscript(str:string, limit:number) {
     const bytes = textToBinaryString(str).length;
     if (bytes > limit) {
       const ratio = limit / bytes;
