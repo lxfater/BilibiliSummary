@@ -5,21 +5,34 @@ import MarkdownIt from "markdown-it";
 const markdown = new MarkdownIt();
 import { titleMap } from './lang'
 import {  getBVid, port } from './utils';
+import Browser from 'webextension-polyfill';
 
 type State = {
     videoId: string,
     subtitle: Body[],
     summaryState: SummaryState,
-    summary: string
+    summary: string,
+    optionKey: string,
+    settings: {
+        autoFetch: boolean,
+        summaryToken: number,
+        fetchTimeout: number,
+    }
 }
-type SummaryState = 'fetchable' | 'fetching' | 'unfetchable' | 'fetched' | 'tooManyRequests' | 'unauthorized' | 'notFound' | 'unknown' | 'cloudFlare' | 'onlyOne' | 'timeout' | 'canced'
+type SummaryState = 'reFetchable' | 'fetchable' | 'fetching' | 'unfetchable' | 'fetched' | 'tooManyRequests' | 'unauthorized' | 'notFound' | 'unknown' | 'cloudFlare' | 'onlyOne' | 'timeout' | 'canced'
 
 export const useStore = defineStore('store', {
     state: (): State => ({
         videoId: '',
         subtitle: [],
         summary: '',
-        summaryState: 'fetchable'
+        summaryState: 'fetchable',
+        settings: {
+            autoFetch: true,
+            summaryToken: 0.5,
+            fetchTimeout: 5,
+        },
+        optionKey: 'options'
     }),
     getters: {
         markdownContent: (state) => {
@@ -38,8 +51,14 @@ export const useStore = defineStore('store', {
                 },
                 'fetchable': {
                     'icon': 'guide-o',
-                    'tips': `点击获取${titleMap['Summary']}`,
+                    'tips': `点击图标获取${titleMap['Summary']}`,
                     'action': 'getSummary',
+                    'class': ''
+                },
+                'reFetchable': {
+                    'icon': 'guide-o',
+                    'tips': `再次点击图标获取${titleMap['Summary']}`,
+                    'action': 'forceSummaryWithNewToken',
                     'class': ''
                 },
                 'fetched': {
@@ -68,7 +87,7 @@ export const useStore = defineStore('store', {
                 },
                 'unauthorized': {
                     'icon': 'link-o',
-                    'tips': `需要重新登录chatgpt才能获取${titleMap['Summary']}`,
+                    'tips': `需要重新登录chatgpt才能获取${titleMap['Summary']},点击图标跳转登录`,
                     'action': 'login',
                     'class': ''
                 },
@@ -108,10 +127,13 @@ export const useStore = defineStore('store', {
             const videoId = getBVid(window.location.href)
             try {
                 port.postMessage({
-                    type,
+                    type: 'getSummary',
                     videoId,
-                    title: document.title
+                    title: document.title,
+                    refreshToken: type === 'forceSummaryWithNewToken' ? true : false,
+                    force: type === 'forceSummary' ? true : false,
                 })
+                this.summaryState  = 'fetching'
             } catch (error) {
                 console.error(error)
                 this.summaryState  = 'unfetchable'
@@ -120,9 +142,12 @@ export const useStore = defineStore('store', {
         async forceSummary (){
             await this.summaryWithType('forceSummary')
         },
+        async forceSummaryWithNewToken() {
+            await this.summaryWithType('forceSummaryWithNewToken')
+        },
         async login(){
             window.open('https://chat.openai.com/chat', '_blank')
-            this.summaryState= 'fetchable'
+            this.summaryState= 'reFetchable'
         },
         cancel() {
             port.postMessage({
@@ -142,6 +167,59 @@ export const useStore = defineStore('store', {
             } catch (error) {
                 console.error(error)
                 return null
+            }
+        },
+        async clearCurrentCache() {
+            const videoId = getBVid(window.location.href)
+            await Browser.storage.local.remove(videoId)
+        },
+        async clearCache() {
+            await Browser.storage.local.clear()
+            await Browser.storage.local.set({
+                [this.optionKey]: this.settings
+            })
+        },
+        async changeAutoFetch(value:boolean) {
+            this.settings.autoFetch = value
+            let result = await Browser.storage.local.get([this.optionKey])
+            console.log(result, 'result')
+            if(result[this.optionKey]) {
+                result[this.optionKey].autoFetch = value
+                await Browser.storage.local.set(result)
+            } else {
+                await Browser.storage.local.set({
+                    [this.optionKey]: {
+                        autoFetch: value
+                    }
+                })
+            }
+        },
+        async changeSummaryToken(value:number) {
+            this.settings.summaryToken = value
+            let result = await Browser.storage.local.get([this.optionKey])
+            if(result[this.optionKey]) {
+                result[this.optionKey].summaryToken = value
+                await Browser.storage.local.set(result)
+            } else {
+                await Browser.storage.local.set({
+                    [this.optionKey]: {
+                        summaryToken: value
+                    }
+                })
+            }
+        },
+        async changeFetchTimeout(value:number) {
+            this.settings.fetchTimeout = value
+            let result = await Browser.storage.local.get([this.optionKey])
+            if(result[this.optionKey]) {
+                result[this.optionKey].fetchTimeout = value
+                await Browser.storage.local.set(result)
+            } else {
+                await Browser.storage.local.set({
+                    [this.optionKey]: {
+                        fetchTimeout: value
+                    }
+                })
             }
         }
         

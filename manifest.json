@@ -3,13 +3,22 @@
     "name": "BilibiliSummary",
     "version": "1.0.0",
     "action": { "default_popup": "index.html" },
-    "host_permissions": ["https://*.openai.com/", "https://*.bilibili.com/"],
+    "host_permissions": ["https://*.openai.com/", "https://*.bilibili.com/", "http://localhost:3000/"],
     "content_scripts": [
       {
         "matches": [ "https://www.bilibili.com/video/*" ],
         "js": [ "src/content-scripts/main.ts"],
-        "run_at": "document_start"
+        "run_at": "document_idle"
+      },
+      {
+        "matches": [ "https://chat.openai.com/chat" ],
+        "js": [ "src/chat/main.ts"],
+        "run_at": "document_idle"
       }
+    ],
+    "permissions": [
+      "unlimitedStorage",
+      "storage"
     ],
     "background": {
       "service_worker": "src/background/index.ts",

@@ -10,6 +10,7 @@ type TalkOptions = {
     signal?: AbortSignal;
     cId?: string;
     pId?: string;
+    refreshToken?: boolean;
     deleteConversation?: boolean;
     onMessage?: (messageInfo:MessageInfo) => void;
 }
@@ -17,6 +18,7 @@ type TalkOptions = {
 type AskOptions = {
     signal?: AbortSignal;
     deleteConversation?: boolean;
+    refreshToken?: boolean;
     onMessage?: (messageInfo:MessageInfo) => void;
 }
 
@@ -88,8 +90,8 @@ export default class Bridge {
         }
         return new Error(this.errorText['Unknown'])
     }
-    async getToken() {
-        if (this.tokenCache.get(this.ACCESS_TOKEN)) {
+    async getToken(refreshToken = false) {
+        if (refreshToken === false && this.tokenCache.get(this.ACCESS_TOKEN)) {
             return this.tokenCache.get(this.ACCESS_TOKEN);
         }
         const response = await fetch("https://chat.openai.com/api/auth/session")
@@ -136,8 +138,8 @@ export default class Bridge {
         }
     }
     async ask(question: string, options: AskOptions) {
-        const { signal, onMessage, deleteConversation } = options;
-        const accessToken = await this.getToken();
+        const { signal, onMessage, deleteConversation, refreshToken } = options;
+        const accessToken = await this.getToken(refreshToken);
         let text = '';
         let conversationID = ''
         return new Promise((resolve, reject) => {
@@ -201,8 +203,8 @@ export default class Bridge {
         })
     }
     async talk(question: string, options: TalkOptions) {
-        const { signal, cId, pId, onMessage,deleteConversation } = options;
-        const accessToken = await this.getToken();
+        const { signal, cId, pId, onMessage,deleteConversation, refreshToken } = options;
+        const accessToken = await this.getToken(refreshToken);
         let text = '';
         let id = '';
         let conversationID = ''

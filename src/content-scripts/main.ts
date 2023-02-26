@@ -1,12 +1,15 @@
 import { createApp } from "vue";
 import App from "./App.vue";
 import {  } from 'vant';
-import { NavBar,Col, Row,Icon, Button } from 'vant';
+import { NavBar,Col, Row,Icon, Button, Switch,Field, Slider } from 'vant';
 import 'vant/lib/index.css';
 import { createPinia } from 'pinia'
 const app = createApp(App)
 const pinia = createPinia()
 app
+.use(Slider)
+.use(Field)
+.use(Switch)
 .use(Button)
 .use(pinia)
 .use(NavBar)
@@ -14,7 +17,7 @@ app
 .use(Row)
 .use(Icon);
 
-window.onload = async () => {
+setTimeout(() => {
   const el = document.querySelector('#danmukuBox');
   if (el) {
     el.insertAdjacentHTML(
@@ -22,5 +25,7 @@ window.onload = async () => {
       '<div id="summary-app-dkfjslkf" style="pointer-events:all" ></div>',
     );
     app.mount('#summary-app-dkfjslkf');
+  } else {
+    console.error('element not found');
   }
-}
+},800)

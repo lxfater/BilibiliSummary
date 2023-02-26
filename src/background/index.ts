@@ -33,10 +33,15 @@ const getSubtitle = async (videoId:string) => {
     }
 }
 let lastController: AbortController | null = null
+
+
+let BilibiliSUMMARYPort = null
+let ChatGPTPort = null
 Browser.runtime.onConnect.addListener((port) => {
     console.debug('connected', port)
     if (port.name === 'BilibiliSUMMARY') {
         port.onMessage.addListener(async (job, port) => {
+            BilibiliSUMMARYPort = port;
             function cancel() {
                 if(lastController) {
                     lastController.abort()
@@ -57,7 +62,60 @@ Browser.runtime.onConnect.addListener((port) => {
                     })
                 },ms)
             }
+            async function setSummary(key:string, value: string) {
+                // write cache to chrome extension storage by key
+                try {
+                    await Browser.storage.local.set({[key]: value})
+                } catch (error) {
+                    console.error(error)
+                }
+                
+                // try {
+                //     let response = await fetch('http://localhost:3000/set?key=' + key + '&value=' + value)
+                //     if(response.status === 200) {
+                //         return true
+                //     } else {
+                //         return false
+                //     }
+                // } catch (error) {
+                //     console.error(error)
+                //     return false
+                // }
+            }
+            async function getSummary(key:string) {
+                // read cache from chrome extension storage by key
+                try {
+                    let result = await Browser.storage.local.get([key])
+                    if(result[key]) {
+                        return result[key]
+                    }
+                } catch (error) {
+                    console.error(error)
+                }
+
+                // try {
+                //     let response = await fetch('http://localhost:3000/get?key=' + key)
+                //     if(response.status === 200) {
+                //         let result = await response.text()
+                //         return result
+                //     } else {
+                //         return null
+                //     }
+                // } catch (error) {
+                //     console.error(error)
+                //     return null
+                // }
+                
+            }
             if (job.type === 'getSummary') {
+                let cache = await getSummary(job.videoId)
+                if(cache) {
+                    port.postMessage({
+                        type: 'summary',
+                        content: cache
+                    })
+                    return 0;
+                }
                 const subtitle = await getSubtitle(job.videoId)
                 if(!subtitle) { 
                     port.postMessage({
@@ -67,7 +125,7 @@ Browser.runtime.onConnect.addListener((port) => {
                 }
                 const question = getPrompt(subtitle, job.title)
                 console.log(question)
-                if(lastController) {
+                if(lastController && job.force === false) {
                     port.postMessage({
                         type: 'error',
                         content: 'onlyOne'
@@ -84,6 +142,7 @@ Browser.runtime.onConnect.addListener((port) => {
                     let result = await chatGptWebProvider.ask(question,{
                         deleteConversation: true,
                         signal: lastController!.signal,
+                        refreshToken: job.refreshToken,
                         onMessage: (m) => {
                             console.log(m);
                             clearTimeout(timeoutHandle)
@@ -97,54 +156,7 @@ Browser.runtime.onConnect.addListener((port) => {
                         type: 'summary',
                         content: result
                     })
-                    try {
-                        clearTimeout(timeoutHandle)
-                    } catch (error) {
-                        console.error(error)
-                    }
-
-                } catch (error: any) {
-                    console.error(error)
-                    port.postMessage({
-                        type: 'error',
-                        content: error.message
-                    })
-                } finally {
-                    lastController = null
-                }
-            } else if (job.type === 'forceSummary') {
-                const subtitle = await getSubtitle(job.videoId)
-                if(!subtitle) { 
-                    port.postMessage({
-                        type: 'error',
-                        content: 'unfetchable'
-                    })
-                }
-                const question = getPrompt(subtitle, job.title)
-                console.log(question)
-                //@ts-ignore
-                try {
-                    if(lastController) {
-                        lastController.abort()
-                    }
-                    lastController = new AbortController()
-                    const timeoutHandle = timeout(timeoutThreshold)
-                    let result = await chatGptWebProvider.ask(question,{
-                        deleteConversation: true,
-                        signal: lastController!.signal,
-                        onMessage: (m) => {
-                            console.log(m);
-                            clearTimeout(timeoutHandle)
-                            port.postMessage({
-                                type: 'summary',
-                                content: m.message
-                            })
-                        }
-                    })
-                    port.postMessage({
-                        type: 'summary',
-                        content: result
-                    })
+                    await setSummary(job.videoId, result as string)
                     try {
                         clearTimeout(timeoutHandle)
                     } catch (error) {
@@ -162,6 +174,17 @@ Browser.runtime.onConnect.addListener((port) => {
                 }
             } else if(job.type === 'cancel') {
                 cancel()
+            }
+        })
+    } else if (port.name === 'ChatGPT') {
+        port.onMessage.addListener(async (message, port) => {
+            ChatGPTPort = port;
+            if (message.type === 'ask') {
+                let result = await chatGptWebProvider.ask(message.content)
+                port.postMessage({
+                    type: 'answer',
+                    content: result
+                })
             }
         })
     }
