@@ -278,7 +278,7 @@ export default class Bridge {
                       })
                     }
                   } catch (error) {
-                    console.error(error);
+                    // console.error(error);
                   }
                 }
               },

@@ -17,23 +17,6 @@ function getPrompt(content: any[], title: string, summaryTokenNumber: number) {
     return prompt;
 }
 
-const getSubtitle = async (videoId:string) => {
-    try {
-        let result = await (await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${videoId}`)).json()
-        if(result.data.subtitle.list.length > 0) {
-            let url = result.data.subtitle.list[0].subtitle_url.replace(/^http:/, 'https:')
-            let subtitle = await (await fetch(url)).json()
-            return subtitle.body
-        } else {
-            return null
-        }
-    } catch (error) {
-        console.error(error)
-        return null
-    }
-}
-
-
 async function getSummary(key:string) {
     // read cache from chrome extension storage by key
     try {
@@ -104,14 +87,8 @@ Browser.runtime.onConnect.addListener((port) => {
                         })
                         return 0;
                     }
-                    const subtitle = await getSubtitle(job.videoId)
-                    if(!subtitle) { 
-                        port.postMessage({
-                            type: 'error',
-                            content: 'unfetchable'
-                        })
-                    }
-                    const question = getPrompt(subtitle, job.title,  job.summaryTokenNumber)
+
+                    const question = getPrompt(job.subtitle, job.title,  job.summaryTokenNumber)
                     ChatGPTPort.postMessage({
                         type: 'getSummary',
                         question,

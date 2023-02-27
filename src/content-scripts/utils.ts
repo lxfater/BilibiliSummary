@@ -20,4 +20,21 @@ export const getBVid = (url:string) => {
     const videoId = result[1];
     return videoId;
 }
+
+
+export const getSubtitle = async (videoId:string) => {
+    try {
+        let result = await (await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${videoId}`)).json()
+        if(result.data.subtitle.list.length > 0) {
+            let url = result.data.subtitle.list[0].subtitle_url.replace(/^http:/, 'https:')
+            let subtitle = await (await fetch(url)).json()
+            return subtitle.body
+        } else {
+            return null
+        }
+    } catch (error) {
+        console.error(error)
+        return null
+    }
+}
 export const port = Browser.runtime.connect({ name: 'BilibiliSUMMARY' })

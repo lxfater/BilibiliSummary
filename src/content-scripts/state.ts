@@ -4,7 +4,7 @@ import { Body } from '../types';
 import MarkdownIt from "markdown-it";
 const markdown = new MarkdownIt();
 import { titleMap } from './lang'
-import {  getBVid, port } from './utils';
+import {  getBVid, getSubtitle, port } from './utils';
 import Browser from 'webextension-polyfill';
 
 type State = {
@@ -126,10 +126,16 @@ export const useStore = defineStore('store', {
         async summaryWithType(type:string) {
             console.log(type)
             const videoId = getBVid(window.location.href)
+            const subtitle = await getSubtitle(videoId)
+            if(!subtitle) { 
+                this.summaryState = 'unfetchable'
+                return 0;
+            }
             try {
                 port.postMessage({
                     type: 'getSummary',
                     videoId,
+                    subtitle,
                     title: document.title,
                     refreshToken: type === 'forceSummaryWithNewToken' ? true : false,
                     timeout: this.settings.fetchTimeout,

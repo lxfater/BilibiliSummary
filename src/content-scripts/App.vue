@@ -56,7 +56,7 @@ onMounted(async () => {
   let summaryToken = 0.5;
   if(result['options']) {
       autoFetch = result['options'].autoFetch === true ? true : false;
-      summaryToken = result['options'].summaryToken ? result['options'].summaryToken : 50;
+      summaryToken = result['options'].summaryToken ? result['options'].summaryToken : 20;
       store.settings.autoFetch = autoFetch;
       store.settings.summaryToken = summaryToken;
   }
