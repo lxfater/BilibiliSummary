@@ -52,8 +52,8 @@ onMounted(async () => {
   port.onMessage.addListener(handleBackgroundMessage)
 
   let result = await Browser.storage.local.get(['options'])
-  let autoFetch = true;
-  let summaryToken = 0.5;
+  let autoFetch = false;
+  let summaryToken = 20;
   if(result['options']) {
       autoFetch = result['options'].autoFetch === true ? true : false;
       summaryToken = result['options'].summaryToken ? result['options'].summaryToken : 20;
