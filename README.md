@@ -12,9 +12,9 @@ A chrome extension helps you summary video on bilibili.
 ![运行截图](https://raw.githubusercontent.com/lxfater/BilibiliSummary/main/screenShot/demo.png)
 ## 特性
 ### 一键获取
-![一键获取](https://raw.githubusercontent.com/lxfater/BilibiliSummary/main/screenShot/1676802769323.png)
-### 自动调节
-![自动调节](https://raw.githubusercontent.com/lxfater/BilibiliSummary/main/screenShot/1676802769323.png)
+![一键获取](https://raw.githubusercontent.com/lxfater/BilibiliSummary/main/screenShot/f2.png)
+### 可调节质量
+![可调节质量](https://raw.githubusercontent.com/lxfater/BilibiliSummary/main/screenShot/f1.png)
 
 
 ## 使用
