@@ -28,8 +28,8 @@ export const useStore = defineStore('store', {
         summary: '',
         summaryState: 'fetchable',
         settings: {
-            autoFetch: true,
-            summaryToken: 50,
+            autoFetch: false,
+            summaryToken: 20,
             fetchTimeout: 8,
         },
         optionKey: 'options'
