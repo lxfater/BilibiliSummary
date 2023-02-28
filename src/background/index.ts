@@ -1,7 +1,7 @@
 
 import { prototype } from 'events';
 import Browser from 'webextension-polyfill'
-import { getChunckedTranscripts, getSummaryPrompt } from './prompt';
+import { getSmallSizeTranscripts, getSummaryPrompt } from './prompt';
 
 function getPrompt(content: any[], title: string, summaryTokenNumber: number) {
     const textData = content.map((item, index) => {
@@ -11,7 +11,7 @@ function getPrompt(content: any[], title: string, summaryTokenNumber: number) {
         }
     })
     const limit = Math.round(15000 * summaryTokenNumber / 100)
-    const text = getChunckedTranscripts(textData, textData, limit);
+    const text = getSmallSizeTranscripts(textData, textData, limit);
     const prompt = getSummaryPrompt(title,text,limit);
 
     return prompt;
