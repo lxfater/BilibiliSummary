@@ -1,5 +1,5 @@
 import Browser from 'webextension-polyfill'
-import { ChatGptWebProvider } from "ai-bridge"
+import { ChatGptWebProvider } from "@lxfater/ai-bridge"
 import { getSmallSizeTranscripts, getSummaryPrompt } from "./prompt";
 const chatGptWebProvider = new ChatGptWebProvider()
 
