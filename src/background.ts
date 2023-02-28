@@ -1,6 +1,6 @@
 import Browser from 'webextension-polyfill'
 import { ChatGptWebProvider } from "ai-bridge"
-import { getChunckedTranscripts, getSummaryPrompt } from "./prompt";
+import { getSmallSizeTranscripts, getSummaryPrompt } from "./prompt";
 const chatGptWebProvider = new ChatGptWebProvider()
 
 function getPrompt(content: any[], title: string) {
@@ -10,8 +10,8 @@ function getPrompt(content: any[], title: string) {
             index
         }
     })
-    const text = getChunckedTranscripts(textData, textData);
-    const prompt = getSummaryPrompt(title,text);
+    const text = getSmallSizeTranscripts(textData, textData, 7000);
+    const prompt = getSummaryPrompt(title,text, 7000);
 
     return prompt;
 }
