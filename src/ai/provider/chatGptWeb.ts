@@ -64,136 +64,130 @@ export default class Bridge {
       "CloudFlare": "cloudFlare",
       "Only one": "onlyOne"
     }
-    async fetch(path: string, options: { method: any; headers: any; body: any; signal: any; }) {
+    private async fetchResult(path: string, options: { method: any; headers: any; body: any; signal: any; }) {
       const { method, headers, body, signal } = options;
       const response = await fetch(path, {
+          signal,
           method,
           headers,
           body,
-          signal,
       });
-      if (response.status === 403)
+      if (this.isCloudFlare(response.status))
           throw new Error(this.errorText["CloudFlare"]);
       if (response.ok) {
           return response;
       }
-      const result = await response.json().catch(()=>({}));
-      throw this.createErrorBaseResult(result)
+      const result = await response.json().catch((e)=>{
+        // console.log(e)
+      });
+      throw this.createErrorResult(result)
     }
-    createErrorBaseResult(result : { detail: { message: string } }) {
+    isCloudFlare(status: number) {
+        return status === 403;
+    }
+    createErrorResult(result : { detail: { message: string } }) {
         const text = result.detail.message || "";
-        if(text.includes("Too many requests")) {
-            return new Error(this.errorText['Too many requests'])
-        } else if(text.includes("Unauthorized")) {
-            return new Error(this.errorText['Unauthorized'])
-        } else if(text.includes('Not Found')) {
-            return new Error(this.errorText['Not Found'])
-        } else if(text.includes('Only one message')) {
-            return new Error(this.errorText['Only one'])
-        }
-        return new Error(this.errorText['Unknown'])
+        const errorName = Object.keys(this.errorText).find((key) => text.includes(key)) || 'Unknown';
+        const errorMessage = this.errorText[errorName as keyof typeof this.errorText];
+        return new Error(errorMessage);
     }
     async getToken(refreshToken = false) {
         if (refreshToken === false && this.tokenCache.get(this.ACCESS_TOKEN)) {
             return this.tokenCache.get(this.ACCESS_TOKEN);
         }
         const response = await fetch("https://chat.openai.com/api/auth/session")
-        if (response.status === 403) {
+        if (this.isCloudFlare(response.status)) {
             throw new Error(this.errorText["CloudFlare"]);
         }
         const result = await response.json();
         if (result.accessToken) {
-          this.tokenCache.set(this.ACCESS_TOKEN, result.accessToken);
-          return result.accessToken;
-        } else {
-          throw new Error(this.errorText['Unauthorized'])
+            this.tokenCache.set(this.ACCESS_TOKEN, result.accessToken);
+            return result.accessToken;
         }
+        throw new Error(this.errorText['Unauthorized'])
+
     }
-    private async *streamAsyncIterable(stream: ReadableStream<Uint8Array>) {
-        const reader = stream.getReader();
+    private async getSSE(resource:string, options: any) {
+        const { onData, ...fetchOptions } = options;
+        const resp = await this.fetchResult(resource, fetchOptions);
+        const feeder = createParser((event) => {
+            if (event.type === "event") {
+                onData(event.data);
+            }
+        });
+        if(resp.body === null) {
+            throw new Error(' Null response body')
+        }
+        const textDecoder = new TextDecoder();
+        const reader = resp.body.getReader();
         try {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) {
-                    return;
+                    return void 0;
+                } else {
+                    const info = textDecoder.decode(value);
+                    feeder.feed(info);
                 }
-                yield value;
             }
         } finally {
             reader.releaseLock();
         }
     }
-
-    private async fetchSSE(resource:string, options: any) {
-        const { onMessage, ...fetchOptions } = options;
-        const resp = await this.fetch(resource, fetchOptions);
-        const parser = createParser((event) => {
-            if (event.type === "event") {
-                onMessage(event.data);
-            }
-        });
-        if(resp.body === null) {
-            throw new Error('response body is null')
-        }
-        for await (const chunk of this.streamAsyncIterable(resp.body)) {
-            const str = new TextDecoder().decode(chunk);
-            parser.feed(str);
-        }
-    }
     async ask(question: string, options: AskOptions) {
-        const { signal, onMessage, deleteConversation, refreshToken } = options;
+        const { signal,  deleteConversation, refreshToken, onMessage: onData } = options;
         const accessToken = await this.getToken(refreshToken);
-        let text = '';
+        let message = '';
         let conversationID = ''
         signal?.addEventListener("abort", () => {
-          this.deleteConversation(accessToken,conversationID)
+          this.clearConversation(accessToken,conversationID)
         })
+        const body = JSON.stringify({
+            action: "next",
+            messages: [
+              {
+                id: uuidv4(),
+                role: "user",
+                content: {
+                  content_type: "text",
+                  parts: [question],
+                },
+              },
+            ],
+            model: "text-davinci-002-render-sha",
+            parent_message_id: uuidv4(),
+        });
         return new Promise((resolve, reject) => {
           try {
-            this.fetchSSE("https://chat.openai.com/backend-api/conversation", {
+            this.getSSE("https://chat.openai.com/backend-api/conversation", {
               method: "POST",
               signal,
               headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${accessToken}`,
               },
-              body: JSON.stringify({
-                action: "next",
-                messages: [
-                  {
-                    id: uuidv4(),
-                    role: "user",
-                    content: {
-                      content_type: "text",
-                      parts: [question],
-                    },
-                  },
-                ],
-                model: "text-davinci-002-render-sha",
-                parent_message_id: uuidv4(),
-              }),
-              onMessage:(message: string) => {
-                // console.debug("sse message", message);
-                if (message === "[DONE]") {
+              body,
+              onData:(str: string) => {
+                if (str === "[DONE]") {
                   if(deleteConversation) {
-                      this.deleteConversation(accessToken,conversationID)
+                      this.clearConversation(accessToken,conversationID)
                   }
-                  if(onMessage) {
-                    onMessage({
-                        message: text,
+                  if(onData) {
+                    onData({
+                        message,
                         done: true
                     })
                   }
-                  resolve(text)
+                  resolve(message)
                   return;
                 } else {
                   try {
-                    const data = JSON.parse(message);
-                    text = data.message?.content?.parts?.[0];
+                    const data = JSON.parse(str);
+                    message = data.message?.content?.parts?.[0];
                     conversationID = data.conversation_id
-                    if(onMessage) {
-                      onMessage({
-                          message: text,
+                    if(onData) {
+                      onData({
+                          message,
                           done: false
                       })
                     }
@@ -209,13 +203,13 @@ export default class Bridge {
         })
     }
     async talk(question: string, options: TalkOptions) {
-        const { signal, cId, pId, onMessage,deleteConversation, refreshToken } = options;
+        const { signal, cId, pId, onMessage: onData,deleteConversation, refreshToken } = options;
         const accessToken = await this.getToken(refreshToken);
-        let text = '';
+        let message = '';
         let id = '';
         let conversationID = ''
         signal?.addEventListener("abort", () => {
-          this.deleteConversation(accessToken,conversationID)
+          this.clearConversation(accessToken,conversationID)
         })
         const basis = {
             action: "next",
@@ -232,48 +226,46 @@ export default class Bridge {
             model: "text-davinci-002-render-sha",
             parent_message_id: pId? pId : uuidv4(),
         }
-        const body = cId ? {...basis, conversation_id: cId} : basis;
+        const body = JSON.stringify(cId ? {...basis, conversation_id: cId} : basis);
         return new Promise<{
             text: string;
             cId: string;
             pId: string;
         }>((resolve, reject) => {
           try {
-            this.fetchSSE("https://chat.openai.com/backend-api/conversation", {
+            this.getSSE("https://chat.openai.com/backend-api/conversation", {
               method: "POST",
               signal,
               headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${accessToken}`,
               },
-              body: JSON.stringify(body),
-              onMessage:(message: string)  => {
-                // console.debug("sse message", message);
-                if (message === "[DONE]") {
+              body,
+              onData:(str: string)  => {
+                if (str === "[DONE]") {
                   if(deleteConversation) {
-                      this.deleteConversation(accessToken,conversationID)
+                      this.clearConversation(accessToken,conversationID)
                   }
-                  if(onMessage) {
-                    onMessage({
-                        message: text,
+                  if(onData) {
+                    onData({
+                        message,
                         done: true
                     })
                   }
                   resolve({
-                      text,
+                      text: message,
                       cId:conversationID,
                       pId:id
                   })
-                  return;
                 } else {
                   try {
-                    const data = JSON.parse(message) as Rely
-                    text = data.message?.content?.parts?.[0];
+                    const data = JSON.parse(str) as Rely
+                    message = data.message?.content?.parts?.[0];
                     id = data.message.id
                     conversationID = data.conversation_id
-                    if(onMessage) {
-                      onMessage({
-                          message: text,
+                    if(onData) {
+                        onData({
+                          message,
                           done: false
                       })
                     }
@@ -289,24 +281,13 @@ export default class Bridge {
 
         })
     }
-    async request(token: string, method: string, path: string, data?: unknown) {
-        return fetch(`https://chat.openai.com/backend-api${path}`, {
-          method,
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: data === undefined ? undefined : JSON.stringify(data),
-        })
-    }
-    async setConversationProperty(
-        token: string,
-        conversationId: string,
-        propertyObject: object,
-      ) {
-        await this.request(token, 'PATCH', `/conversation/${conversationId}`, propertyObject)
-    }
-    async deleteConversation(token: string, conversationId: string) {
-        this.setConversationProperty(token, conversationId, { is_visible: false })
+    async clearConversation(token: string, conversationId: string) {
+      const path = `https://chat.openai.com/backend-api/conversation/${conversationId}`;
+      const data = { is_visible: false };
+      const options: RequestInit = { method: 'PATCH', body: JSON.stringify(data), headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      } };
+      await fetch(`${path}`, options);
     }
 }
