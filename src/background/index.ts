@@ -2,7 +2,7 @@
 import { prototype } from 'events';
 import Browser from 'webextension-polyfill'
 import { getSmallSizeTranscripts, getSummaryPrompt } from './prompt';
-
+import { Gpt3 } from '../ai/provider/Gpt3';
 function getPrompt(content: any[], title: string, summaryTokenNumber: number) {
     const textData = content.map((item, index) => {
         return {
@@ -11,7 +11,7 @@ function getPrompt(content: any[], title: string, summaryTokenNumber: number) {
         }
     })
     const limit = Math.round(15000 * summaryTokenNumber / 100)
-    const text = getSmallSizeTranscripts(textData, textData, limit);
+    const text = getSmallSizeTranscripts(textData, textData, 800);
     const prompt = getSummaryPrompt(title,text,limit);
 
     return prompt;
@@ -57,6 +57,7 @@ async function connect() {
         await Browser.tabs.create({url: "https://chat.openai.com"})
     }
 }
+let gpt3 = new Gpt3("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");
 let BilibiliSUMMARYPort: Browser.Runtime.Port | null = null
 let ChatGPTPort: Browser.Runtime.Port | null = null
 Browser.runtime.onConnect.addListener((port) => {
@@ -65,6 +66,30 @@ Browser.runtime.onConnect.addListener((port) => {
         BilibiliSUMMARYPort = port;
 
         port.onMessage.addListener(async (job, port) => {
+            if(job.type === 'gtp3Summary') {
+                const lastController = new AbortController()
+                const question = getPrompt(job.subtitle, job.title,  10)
+                let result = await gpt3.ask(question,{
+                    signal: lastController!.signal,
+                    onMessage: (m) => {
+                        port.postMessage({
+                            type: 'summary',
+                            content: {
+                                message: m.message,
+                                videoId: job.videoId
+                            }
+                        })
+                    }
+                })
+                BilibiliSUMMARYPort!.postMessage({
+                    type: 'summary',
+                    content: {
+                        message: result,
+                        videoId: job.videoId
+                    }
+                })
+                return 0;
+            }
             if(job.type === 'login') {
                 await connect()
                 setTimeout(() => {

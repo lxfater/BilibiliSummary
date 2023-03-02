@@ -20,7 +20,7 @@ type State = {
     }
 }
 type SummaryState = 'reFetchable' | 'fetchable' | 'fetching' | 'unfetchable' | 'fetched' | 'tooManyRequests' | 'unauthorized' | 'notFound' | 'unknown' | 'cloudFlare' | 'onlyOne' | 'timeout' | 'canced'
-
+const isChatgpt = false
 export const useStore = defineStore('store', {
     state: (): State => ({
         videoId: '',
@@ -46,25 +46,25 @@ export const useStore = defineStore('store', {
                 'unfetchable': {
                     'icon': 'warning-o',
                     'tips': '抱歉无法解析当前视频',
-                    'action': 'getSummary',
+                    'action': isChatgpt ? 'getSummary': 'getGpt3Summary',
                     'class': ''
                 },
                 'fetchable': {
                     'icon': 'guide-o',
                     'tips': `点击图标获取${titleMap['Summary']}`,
-                    'action': 'getSummary',
+                    'action': isChatgpt ? 'getSummary': 'getGpt3Summary',
                     'class': ''
                 },
                 'reFetchable': {
                     'icon': 'guide-o',
                     'tips': `再次点击图标获取${titleMap['Summary']}`,
-                    'action': 'forceSummaryWithNewToken',
+                    'action': isChatgpt ? 'forceSummaryWithNewToken': 'getGpt3Summary',
                     'class': ''
                 },
                 'fetched': {
                     'icon': 'comment-o',
                     'tips': `获取${titleMap['Summary']}成功`,
-                    'action': 'getSummary',
+                    'action': isChatgpt ? 'getSummary': 'getGpt3Summary',
                     'class': ''
                 },
                 'cloudFlare': {
@@ -106,13 +106,13 @@ export const useStore = defineStore('store', {
                 'timeout': {
                     'icon': 'replay',
                     'tips': `获取超时8分钟,点击图标重试获取${titleMap['Summary']}`,
-                    'action': 'forceSummary',
+                    'action': isChatgpt ? 'forceSummary': 'getGpt3Summary',
                     'class': ''
                 },
                 'cancel': {
                     'icon': 'replay',
                     'tips': `取消成功,点击图标重试获取${titleMap['Summary']}`,
-                    'action': 'forceSummary',
+                    'action': isChatgpt ? 'forceSummary': 'getGpt3Summary',
                     'class': ''
                 }
             }
@@ -120,6 +120,26 @@ export const useStore = defineStore('store', {
         }
     },
     actions: {
+        async getGpt3Summary(){
+            const videoId = getBVid(window.location.href)
+            const subtitle = await getSubtitle(videoId)
+            if(!subtitle) { 
+                this.summaryState = 'unfetchable'
+                return 0;
+            }
+            try {
+                port.postMessage({
+                    type: 'gtp3Summary',
+                    videoId,
+                    subtitle,
+                    title: document.title,
+                })
+                this.summaryState  = 'fetching'
+            } catch (error) {
+                console.error(error)
+                this.summaryState  = 'unfetchable'
+            }
+        },
         async getSummary(){
             await this.summaryWithType('getSummary')
         },
