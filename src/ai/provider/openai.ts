@@ -1,8 +1,16 @@
 import { createParser } from "eventsource-parser";
-export class Gpt3 {
+export class Openai {
     key: string
-    constructor(key: string) {
+    gpt35 = ['gpt-3.5-turbo-0301','gpt-3.5-turbo']
+    model: string = 'gpt-3.5-turbo'
+    maxTokens: number
+    constructor(key: string, mode:string, maxTokens: string) {
         this.key = key;
+        this.model = mode;
+        this.maxTokens = parseInt(maxTokens);
+    }
+    getUrl() {
+      return this.gpt35.includes(this.model) ? 'https://api.openai.com/v1/chat/completions': 'https://api.openai.com/v1/completions' ;
     }
     private async getSSE(resource:string, options: any) {
         const { onData, ...fetchOptions } = options;
@@ -31,19 +39,29 @@ export class Gpt3 {
             reader.releaseLock();
         }
     }
+    getBody(question: string) {
+      return this.gpt35.includes(this.model) ? JSON.stringify({
+        model: this.model,
+        messages: [{role: "user", content:question}],
+        stream: true,
+        max_tokens: this.maxTokens
+      }) : JSON.stringify({
+        prompt: question,
+        model: this.model,
+        stream: true,
+        max_tokens: this.maxTokens,
+      })
+    }
+    parseMessage(data: any) {
+      return this.gpt35.includes(this.model) ? (data.choices[0].delta.content || '') : data.choices[0].text
+    }
     async ask(question: string, options: { signal: any; onMessage: any; }) {
         const { signal,onMessage: onData } = options;
         let message = '';
-        const body = JSON.stringify({
-            model: "text-davinci-003",
-            prompt: question,
-            stream: true,
-            max_tokens: 500,
-
-        });
+        const body = this.getBody(question);
         return new Promise((resolve, reject) => {
           try {
-            this.getSSE("https://api.openai.com/v1/completions", {
+            this.getSSE(this.getUrl(), {
               method: "POST",
               signal,
               headers: {
@@ -64,7 +82,7 @@ export class Gpt3 {
                 } else {
                   try {
                     const data = JSON.parse(str);
-                    message += data.choices[0].text
+                    message += this.parseMessage(data)
                     if(onData) {
                       onData({
                           message,

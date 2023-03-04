@@ -8,7 +8,13 @@
       "48": "logo.png",
       "128": "logo.png"
     },
+    "host_permissions": ["https://*.openai.com/"],
     "content_scripts": [
+      {
+        "matches": ["https://www.bilibili.com/video/*"],
+        "js": ["src/inject/injecter.ts"],
+        "run_at": "document_start"
+      },
       {
         "matches": [ "https://www.bilibili.com/video/*" ],
         "js": [ "src/content-scripts/main.ts"],
@@ -20,6 +26,7 @@
         "run_at": "document_idle"
       }
     ],
+    "options_page": "option.html",
     "permissions": [
       "unlimitedStorage",
       "storage"

@@ -6,9 +6,11 @@ import Subtitle from './pages/Subtitle.vue';
 import Summary from './pages/Summary.vue';
 import { titleMap } from './lang'
 import { getBVid, urlChange } from './utils'
-import { useStore } from './state';
+import { useStore, storage } from './state';
 import { port } from './utils';
 import Browser from 'webextension-polyfill';
+import { SubTitle } from '../types';
+import logo from "../../logo.png"
 const components = {
   Summary,
   Setting,
@@ -19,8 +21,10 @@ const curretView = ref('Summary')
 const to = (path: string) => {
   curretView.value = path
 }
-const title = computed(() => {
+const store = useStore();
 
+
+const title = computed(() => {
   return titleMap[curretView.value as keyof typeof titleMap]
 })
 const iconColor = (path: string) => {
@@ -30,54 +34,82 @@ const iconColor = (path: string) => {
     return '#000'
   }
 }
+const startSubtitle = () => {
+  const el = document.querySelector('#bilibili-player > div > div > div.bpx-player-primary-area > div.bpx-player-video-area > div.bpx-player-control-wrap > div.bpx-player-control-entity > div.bpx-player-control-bottom > div.bpx-player-control-bottom-right > div.bpx-player-ctrl-btn.bpx-player-ctrl-subtitle > div.bpx-player-ctrl-btn-icon > span')
+  if (el) {
+    //@ts-ignore
+    el.click() 
+    setTimeout(() => {
+      //@ts-ignore
+      el.click()
+    }, 500)
+  }
+}
 
-const store = useStore();
 urlChange(() => {
   store.summaryState = 'fetchable'
 })
 const handleBackgroundMessage = (result: { type: any; content: any; }) => {
-  const { type, content} = result;
+  const { type, content } = result;
   if (type === 'summary') {
     const videoId = getBVid(window.location.href)
-    if(videoId !== content.videoId) {
+    if (videoId !== content.videoId) {
       return;
     }
     store.summaryState = 'fetched'
     store.summary = content.message;
+    console.log('content-message', content.message)
   } else if (type === 'error') {
     store.summaryState = content
   }
 }
+const handleMessage = (event: { data: { type: string; content: string; }; }) => {
+    console.log('content-scripts', event.data)
+    if (event.data.type === 'getSummary') {
+      let data = JSON.parse(event.data.content) as SubTitle
+      store.subtitle= data.body
+    }
+}
 onMounted(async () => {
+  await store.loadMeta()
+  storage.onMetaKeyChange((meta) => {
+    //@ts-ignore
+    store[storage.metaKey] = meta
+  })
   port.onMessage.addListener(handleBackgroundMessage)
-
-  let result = await Browser.storage.local.get(['options'])
-  let autoFetch = false;
-  let summaryToken = 20;
-  if(result['options']) {
-      autoFetch = result['options'].autoFetch === true ? true : false;
-      summaryToken = result['options'].summaryToken ? result['options'].summaryToken : 20;
-      store.settings.autoFetch = autoFetch;
-      store.settings.summaryToken = summaryToken;
+  window.addEventListener('message',handleMessage);
+  if (await store.getClickSubtitle()) {
+    setTimeout(() => {
+      startSubtitle()
+    }, 800)
   }
-
-  if (autoFetch) {
+  //@ts-ignore
+  if (store[storage.metaKey].autoFetch) {
     store.forceSummary()
   }
-
 })
+
+const openOptions = () => {
+  port.postMessage({
+    type: 'CommonService',
+    content: {
+      method:'openOptionsPage'
+    }
+  })
+}
 </script>
 <template>
   <div>
-    <van-nav-bar :left-text="title" class="navbar" :clickable="false">
-      <template #right>
-        <div class="action">
-          <van-icon name="exchange" size="22" :color="`${iconColor('Summary')}`" @click="to('Summary')" />
-          <van-icon name="setting-o" size="22" :color="`${iconColor('Setting')}`" @click="to('Setting')" />
-          <van-icon name="question-o" size="22" :color="`${iconColor('Help')}`" @click="to('Help')" />
-        </div>
-      </template>
-    </van-nav-bar>
+    <div class="bar">
+      <div class="icon">
+        <img :src="Browser.runtime.getURL(logo)">
+        <div class="text">Summary for Bilibili</div>
+      </div>
+      <div class="action">
+        <van-icon name="exchange" size="22" :color="`${iconColor('Summary')}`" @click="to('Summary')" />
+        <van-icon name="setting-o" size="22" :color="`${iconColor('Setting')}`" @click="openOptions" />
+      </div>
+    </div>
     <div class="container">
       <component :is="components[curretView as keyof typeof components]"></component>
     </div>
@@ -85,9 +117,30 @@ onMounted(async () => {
 </template>
 
 <style scoped lang="scss">
-.navbar {
+.bar {
   border: 2px solid #e5e5e5;
   border-radius: 4px 4px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-direction: row;
+
+  .icon {
+    display: flex;
+    align-items: center;
+    padding: 5px;
+
+    img {
+      width: 30px;
+      height: 30px;
+    }
+
+    .text {
+      font-size: 16px;
+      margin-left: 5px;
+      font-weight: 700;
+    }
+  }
 
   .action {
     display: flex;
@@ -97,7 +150,7 @@ onMounted(async () => {
 }
 
 .container {
-  padding: 10px;
+  padding: 5px;
   border-bottom: 2px solid #e5e5e5;
   border-right: 2px solid #e5e5e5;
   border-left: 2px solid #e5e5e5;
@@ -105,5 +158,4 @@ onMounted(async () => {
   min-height: 300px;
   max-height: 500px;
   margin-bottom: 10px;
-}
-</style>
+}</style>

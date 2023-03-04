@@ -12,6 +12,8 @@ export default defineConfig({
       input: {
         // output file at '/index.html'
         main: resolve(__dirname, 'index.html'),
+        // output file at '/option.html'
+        option: resolve(__dirname, 'option.html'),
       },
     },
   },

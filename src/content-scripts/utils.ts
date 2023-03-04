@@ -37,4 +37,4 @@ export const getSubtitle = async (videoId:string) => {
         return null
     }
 }
-export const port = Browser.runtime.connect({ name: 'BilibiliSUMMARY' })
+export const port = Browser.runtime.connect({ name: 'BILIBILISUMMARY' })

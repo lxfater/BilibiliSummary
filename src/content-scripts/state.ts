@@ -1,42 +1,40 @@
 import { defineStore } from 'pinia'
 import { Body } from '../types';
-
 import MarkdownIt from "markdown-it";
 const markdown = new MarkdownIt();
 import { titleMap } from './lang'
 import {  getBVid, getSubtitle, port } from './utils';
 import Browser from 'webextension-polyfill';
-
+import { ExtensionStorage } from  '../store/index'
+export const storage = new ExtensionStorage()
+type SummaryState = 'reFetchable' | 'fetchable' | 'fetching' | 'unfetchable' | 'fetched' | 'tooManyRequests' | 'unauthorized' | 'notFound' | 'unknown' | 'cloudFlare' | 'onlyOne' | 'timeout' | 'canced'
 type State = {
     videoId: string,
     subtitle: Body[],
-    summaryState: SummaryState,
     summary: string,
-    optionKey: string,
-    settings: {
-        autoFetch: boolean,
-        summaryToken: number,
-        fetchTimeout: number,
-    }
+    summaryState: SummaryState,
+    [storage.metaKey]: ReturnType<typeof storage.getDefaultMetaKey>
 }
-type SummaryState = 'reFetchable' | 'fetchable' | 'fetching' | 'unfetchable' | 'fetched' | 'tooManyRequests' | 'unauthorized' | 'notFound' | 'unknown' | 'cloudFlare' | 'onlyOne' | 'timeout' | 'canced'
-const isChatgpt = false
 export const useStore = defineStore('store', {
-    state: (): State => ({
+    state: () : State => ({
         videoId: '',
         subtitle: [],
         summary: '',
         summaryState: 'fetchable',
-        settings: {
-            autoFetch: false,
-            summaryToken: 20,
-            fetchTimeout: 8,
-        },
-        optionKey: 'options'
+        [storage.metaKey]: storage.getDefaultMetaKey(),
     }),
     getters: {
         markdownContent: (state) => {
             return markdown.render(state.summary);
+        },
+        list: (state) => {
+            return state.summary.split('\n').map((item) => {
+                let [time, content] = item.split(':');
+                return {
+                    time,
+                    content
+                }
+            }).filter(x => x.time && x.content)
         },
         isContent: (state) => {
             return state.summaryState === 'fetched'
@@ -46,25 +44,25 @@ export const useStore = defineStore('store', {
                 'unfetchable': {
                     'icon': 'warning-o',
                     'tips': '抱歉无法解析当前视频',
-                    'action': isChatgpt ? 'getSummary': 'getGpt3Summary',
+                    'action': 'getSummary',
                     'class': ''
                 },
                 'fetchable': {
                     'icon': 'guide-o',
                     'tips': `点击图标获取${titleMap['Summary']}`,
-                    'action': isChatgpt ? 'getSummary': 'getGpt3Summary',
+                    'action':'getSummary',
                     'class': ''
                 },
                 'reFetchable': {
                     'icon': 'guide-o',
                     'tips': `再次点击图标获取${titleMap['Summary']}`,
-                    'action': isChatgpt ? 'forceSummaryWithNewToken': 'getGpt3Summary',
+                    'action': 'forceSummaryWithNewToken',
                     'class': ''
                 },
                 'fetched': {
                     'icon': 'comment-o',
                     'tips': `获取${titleMap['Summary']}成功`,
-                    'action': isChatgpt ? 'getSummary': 'getGpt3Summary',
+                    'action': 'getSummary',
                     'class': ''
                 },
                 'cloudFlare': {
@@ -106,13 +104,13 @@ export const useStore = defineStore('store', {
                 'timeout': {
                     'icon': 'replay',
                     'tips': `获取超时8分钟,点击图标重试获取${titleMap['Summary']}`,
-                    'action': isChatgpt ? 'forceSummary': 'getGpt3Summary',
+                    'action': 'forceSummary',
                     'class': ''
                 },
                 'cancel': {
                     'icon': 'replay',
                     'tips': `取消成功,点击图标重试获取${titleMap['Summary']}`,
-                    'action': isChatgpt ? 'forceSummary': 'getGpt3Summary',
+                    'action': 'forceSummary',
                     'class': ''
                 }
             }
@@ -120,8 +118,17 @@ export const useStore = defineStore('store', {
         }
     },
     actions: {
+        async loadMeta() {
+            let meta = await storage.getMetaKey();
+            this[storage.metaKey] = Object.assign(this[storage.metaKey], meta)  
+        },
+        async getClickSubtitle() {
+            //@ts-ignore
+            return this[storage.metaKey].clickSubtitle
+        },
         async getGpt3Summary(){
             const videoId = getBVid(window.location.href)
+            this.videoId = videoId
             const subtitle = await getSubtitle(videoId)
             if(!subtitle) { 
                 this.summaryState = 'unfetchable'
@@ -146,7 +153,8 @@ export const useStore = defineStore('store', {
         async summaryWithType(type:string) {
             console.log(type)
             const videoId = getBVid(window.location.href)
-            const subtitle = await getSubtitle(videoId)
+            this.videoId = videoId
+            const subtitle = await this.getSubtitle(videoId)
             if(!subtitle) { 
                 this.summaryState = 'unfetchable'
                 return 0;
@@ -158,8 +166,8 @@ export const useStore = defineStore('store', {
                     subtitle,
                     title: document.title,
                     refreshToken: type === 'forceSummaryWithNewToken' ? true : false,
-                    timeout: this.settings.fetchTimeout,
-                    summaryTokenNumber: this.settings.summaryToken,
+                    timeout: this[storage.metaKey].fetchTimeout,
+                    summaryTokenNumber: this[storage.metaKey].summaryToken,
                     force: (type === 'forceSummary') || (type === 'forceSummaryWithNewToken') ? true : false,
                 })
                 this.summaryState  = 'fetching'
@@ -186,13 +194,16 @@ export const useStore = defineStore('store', {
         },
         async getSubtitle(videoId:string){
             try {
-                let result = await (await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${videoId}`)).json()
+                let result = await (await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${videoId}`,{
+                    credentials: 'include'
+                })).json()
                 if(result.data.subtitle.list.length > 0) {
                     let url = result.data.subtitle.list[0].subtitle_url.replace(/^http:/, 'https:')
                     let subtitle = await (await fetch(url)).json()
+                    this.subtitle = subtitle;
                     return subtitle.body
                 } else {
-                    return null
+                    return this.subtitle
                 }
             } catch (error) {
                 console.error(error)
@@ -201,60 +212,9 @@ export const useStore = defineStore('store', {
         },
         async clearCurrentCache() {
             const videoId = getBVid(window.location.href)
+            this.videoId = videoId
             await Browser.storage.local.remove(videoId)
-        },
-        async clearCache() {
-            await Browser.storage.local.clear()
-            await Browser.storage.local.set({
-                [this.optionKey]: this.settings
-            })
-        },
-        async changeAutoFetch(value:boolean) {
-            
-            this.settings.autoFetch = value
-            let result = await Browser.storage.local.get([this.optionKey])
-            console.log(result, 'result')
-            if(result[this.optionKey]) {
-                result[this.optionKey].autoFetch = value
-                await Browser.storage.local.set(result)
-            } else {
-                await Browser.storage.local.set({
-                    [this.optionKey]: {
-                        autoFetch: value
-                    }
-                })
-            }
-        },
-        async changeSummaryToken(value:number) {
-            this.settings.summaryToken = value
-            let result = await Browser.storage.local.get([this.optionKey])
-            if(result[this.optionKey]) {
-                result[this.optionKey].summaryToken = value
-                await Browser.storage.local.set(result)
-            } else {
-                await Browser.storage.local.set({
-                    [this.optionKey]: {
-                        summaryToken: value
-                    }
-                })
-            }
-        },
-        async changeFetchTimeout(value:number) {
-            console.log(value, 'value')
-            this.settings.fetchTimeout = value
-            let result = await Browser.storage.local.get([this.optionKey])
-            if(result[this.optionKey]) {
-                result[this.optionKey].fetchTimeout = value
-                await Browser.storage.local.set(result)
-            } else {
-                await Browser.storage.local.set({
-                    [this.optionKey]: {
-                        fetchTimeout: value
-                    }
-                })
-            }
         }
-        
     }
 })
 

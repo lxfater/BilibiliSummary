@@ -1,7 +1,12 @@
 
-export function getSummaryPrompt(title: string, transcript: string, byteLimit: number) {
-  const truncatedTranscript = limitTranscriptByteLength(transcript, byteLimit);
-  return `标题: "${title.replace(/\n+/g, " ").trim()}"\n字幕: "${truncatedTranscript.replace(/\n+/g, " ").trim()}"\n中文总结:`;
+
+export function getSummaryPrompt(title: string,transcript: string, times: string[]) {
+    const description = "请根据对应的字幕进行详细总结。";
+    const example  = "字幕:" + "\n" + "485.5: <时间点485.5的字幕>" + "\n" + "总结列表:" + "\n" + "485.5: <时间点485.5的总结>" + "\n" + "字幕:" + "\n" + "19.78: <时间点19的字幕>" + "\n" + "65.89: <时间点65的字幕>" + "\n" + "总结列表:" + "\n" + "19.78: <时间点19的总结>" + "\n" + "65.89: <时间点65的总结>" + "\n";
+    const question = "字幕:"+ "\n" + transcript + "\n" + `总结列表(总结列表只能包括${times.join(',')}的信息):` + "\n"
+
+    return description + example + question;
+
 }
 
 export function limitTranscriptByteLength(str: string, byteLimit: number) {
@@ -36,6 +41,17 @@ function filterHalfRandomly<T>(arr: T[]): T[] {
 
   return filteredArr;
 }
+
+// filterOddItem in the array
+function filterOddItem<T>(arr: T[]): T[] {
+  const filteredArr: T[] = [];
+  for (let i = 0; i < arr.length; i++) {
+    if (i % 2 === 0) {
+      filteredArr.push(arr[i]);
+    }
+  }
+  return filteredArr;
+}
 function getByteLength(text: string) {
   return unescape(encodeURIComponent(text)).length;
 }
@@ -51,9 +67,13 @@ type SubtitleItem = {
 export function getSmallSizeTranscripts(newTextData: SubtitleItem[], oldTextData: SubtitleItem[], byteLimit: number): string {
   const text = newTextData.sort((a, b) => a.index - b.index).map(t => t.text).join(" ");
   const byteLength = getByteLength(text);
-
-  if (byteLength > byteLimit) {
-    const filtedData = filterHalfRandomly(newTextData);
+  if(newTextData.length === 1 && byteLength > byteLimit) {
+    const s = newTextData[0].text.split(' ').map((x, index) => ({ text: x, index: index }))
+    const filtedData = filterOddItem(s);
+    return getSmallSizeTranscripts(filtedData, s, byteLimit);
+  }
+  if (byteLength > byteLimit ) {
+    const filtedData = filterOddItem(newTextData);
     return getSmallSizeTranscripts(filtedData, oldTextData, byteLimit);
   }
 
@@ -73,6 +93,7 @@ export function getSmallSizeTranscripts(newTextData: SubtitleItem[], oldTextData
       const overRate = (lastByteLength + nextTextByteLength - byteLimit) / nextTextByteLength;
       const chunkedText = obj.text.substring(0, Math.floor(obj.text.length * overRate));
       resultData.push({ text: chunkedText, index: obj.index });
+      break;
     } else {
       resultData.push(obj);
     }
