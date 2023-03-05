@@ -22,7 +22,7 @@ export class ExtensionStorage {
                 minCount: 5,
                 count: 30,
                 timeout: 8,
-                stopCount: 8000,
+                stopCount: 4000,
                 stopIntervalMs: 150  
             },
             ChatgptWebSetting: {
@@ -33,7 +33,7 @@ export class ExtensionStorage {
                 minCount: 5,
                 count: 30,
                 timeout: 8,
-                stopCount: 8000,
+                stopCount: 4000,
                 stopIntervalMs: 200 
             }
         }
