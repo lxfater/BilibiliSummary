@@ -25,7 +25,7 @@ const options = [{
     </div>
     <el-form label-width="200px" label-position="left">
       <el-form-item label="APIKEY">
-        <el-input v-model="store.meta.OpenaiSetting.apiKey" />
+        <el-input v-model="store.meta.OpenaiSetting.apiKey" type="password" show-password />
       </el-form-item>
       <el-form-item label="模型列表">
         <el-select v-model="store.meta.OpenaiSetting.model" placeholder="当前接入方式" size="large"  >
@@ -70,7 +70,7 @@ const options = [{
   margin-bottom: 20px;
   p {
     margin-bottom: 10px;
-    font-size: 20px;
+    font-size: 14px;
 
   }
 }

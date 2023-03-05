@@ -47,7 +47,7 @@ const store = useStore()
   margin-bottom: 20px;
   p {
     margin-bottom: 10px;
-    font-size: large;
+    font-size: 14px;
 
   }
 }
