@@ -14,7 +14,7 @@ export class ExtensionStorage {
             OpenaiSetting: {
                 apiKey: '',
                 model: 'gpt-3.5-turbo',
-                maxTokens: 200,
+                maxTokens: 450,
                 words:1000,
                 baseTime: 5,
                 step: 0.1,
