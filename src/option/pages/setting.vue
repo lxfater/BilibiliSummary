@@ -11,7 +11,9 @@ const options = [{
   value: 'Openai',
   label: 'Openai'
 }]
-
+router.push({
+    path: `/ChatgptWeb`
+  })
 watch(() => store.meta.providerType, (val) => {
   router.push({
     path: `/${val}`

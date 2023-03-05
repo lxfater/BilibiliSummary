@@ -3,10 +3,10 @@ import { getSmallSizeTranscripts, getSummaryPrompt } from './prompt';
 import { Openai } from '../ai/provider/openai';
 import { OpenaiSetting } from '../config';
 import { Body } from '../types';
-import { timestamp } from '@vueuse/shared';
+import { ExtensionStorage  } from '../store/index'
 
-function getPrompt(content: Body[], title: string, summaryTokenNumber: number) {
-  let group = groupSubtitleByTime(content,5);
+function getPrompt(content: Body[], words: number, baseTime: number,step: number, maxCount = 5, minCount =3, count = 188) {
+  let group = groupSubtitleByTime(content,baseTime,step, maxCount, minCount, count);
   let totalLength = group.map(x => x.map(y => y.content)).join('').length;
   console.log(totalLength, '总字数')
   let times: string[] = [];
@@ -19,7 +19,7 @@ function getPrompt(content: Body[], title: string, summaryTokenNumber: number) {
         index: index
       }
     })
-    const limit = Math.max(30, Math.round( itemLength / totalLength * 4000))
+    const limit = Math.max(30, Math.round( itemLength / totalLength * (words * 2)))
     const content = getSmallSizeTranscripts(group, group,limit);
     return {
       from: from,
@@ -27,16 +27,16 @@ function getPrompt(content: Body[], title: string, summaryTokenNumber: number) {
     }
   }).filter(x => x.content.length > 0).map(x => {
     times.push(x.from)
-    return `${x.from} ${x.content}`
+    return `${x.from}: ${x.content}`
   })
   const text = result.join('\n')
-  const prompt = getSummaryPrompt(title,text, times);
+  const prompt = getSummaryPrompt('',text, times);
 
   return prompt;
 }
 
 // group the subtitle by the time
-function groupSubtitleByTime(subtitle: Body[], time: number, maxCount: number = 5) {
+function groupSubtitleByTime(subtitle: Body[], baseTime: number,step: number, maxCount =  6, minCount =3, count = 188) {
 
     const groupSubtitle: Body[][] = [];
     let group: Body[] = [];
@@ -47,7 +47,7 @@ function groupSubtitleByTime(subtitle: Body[], time: number, maxCount: number = 
             lastTime = item.from;
             group.push(item);
         } else {  
-            if (item.from - lastTime < time) {
+            if (item.from - lastTime < baseTime) {
                 group.push(item);
             } else {
                 groupSubtitle.push(group);
@@ -60,8 +60,33 @@ function groupSubtitleByTime(subtitle: Body[], time: number, maxCount: number = 
     if (group.length > 0) {
         groupSubtitle.push(group);
     }
-    if (groupSubtitle.length > maxCount) {
-      return groupSubtitleByTime(subtitle, time + 0.5, maxCount)
+    if (groupSubtitle.length > maxCount && count > 0) {
+      return groupSubtitleByTime(subtitle, baseTime + step, step, maxCount, minCount, count -1)
+    } else if (groupSubtitle.length < minCount && count > 0) {
+      return groupSubtitleByTime(subtitle, baseTime - step, step, maxCount, minCount, count - 1)
+    }
+
+    return groupSubtitle
+}
+
+// 将字幕里面的content根据数字分为几个集合
+function groupSubtitleByCount(subtitle: Body[], count: number) {
+    const groupSubtitle: Body[][] = [];
+    let group: Body[] = [];
+    let textLength = 0;
+    for (let i = 0; i < subtitle.length; i++) {
+        const item = subtitle[i];
+        textLength += item.content.length;
+        if (textLength < count) {
+            group.push(item);
+        } else {
+            groupSubtitle.push(group);
+            group = [];
+            textLength = 0;
+        }
+    }
+    if (group.length > 0) {
+        groupSubtitle.push(group);
     }
     return groupSubtitle
 }
@@ -103,6 +128,13 @@ class CommonService {
   }
 }
 const commonService = new CommonService();
+
+
+// write a code to await ms
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+let storage = new ExtensionStorage();
 class Store {
   optionKey ='meta'
   openai = "Openai"
@@ -112,19 +144,23 @@ class Store {
     if(result[this.optionKey]) {
         return result[this.optionKey].providerType
     } else {
-      return 'CHATGPT'
+      return "ChatgptWeb"
     }
   }
-  async getOpenaiSetting(): Promise<{
-    apiKey: string;
-    model: string;
-    maxTokens: number;
-}> {
+  async getOpenaiSetting() {
     let result = await Browser.storage.local.get([this.optionKey])
     if(result[this.optionKey]) {
         return result[this.optionKey].OpenaiSetting 
     } else {
-      return OpenaiSetting;
+      return storage.getDefaultMetaKey().ChatgptWebSetting
+    }
+  }
+  async getChatgptSetting() {
+    let result = await Browser.storage.local.get([this.optionKey])
+    if(result[this.optionKey]) {
+        return result[this.optionKey].ChatgptWebSetting
+    } else {
+      return storage.getDefaultMetaKey().ChatgptWebSetting
     }
   }
 }
@@ -183,35 +219,54 @@ class OpenaiProvider {
             this.lastController.abort();
           }
           this.lastController = new AbortController();
-          const timeoutThreshold = job.timeout * 30 * 1000;
+          let setting = await store.getOpenaiSetting()
+          const timeoutThreshold = setting.timeout * 30 * 1000;
           const timeoutHandle = this.timeout(timeoutThreshold);
-          const question = getPrompt(job.subtitle, job.title,  job.summaryTokenNumber)
-          let result = await this.openai.ask(question,{
-            signal: this.lastController!.signal,
-            onMessage: (m) => {
+          const stopIntervalMs = setting.stopIntervalMs || 500
+          const questions =groupSubtitleByCount(job.subtitle,parseFloat(setting.stopCount)).map(x => {
+            return getPrompt(x,parseInt(setting.words),parseFloat(setting.baseTime),parseFloat(setting.step),parseInt(setting.maxCount), parseInt(setting.minCount), parseInt(setting.count))
+          })
+          let resultSum = ''
+          for await (const question of questions) {
+            try {
+              let result = await this.openai.ask(question,{
+                signal: this.lastController!.signal,
+                onMessage: (m) => {
+                    clearTimeout(timeoutHandle);
+                    this.port.postMessage({
+                      type: 'summary',
+                      content: {
+                        message: m.message,
+                        videoId: job.videoId
+                      }
+                    });
+                }})  as string
+              resultSum += result
+              this.port.postMessage({
+                type: 'summaryFinal',
+                content: {
+                  message: result,
+                  videoId: job.videoId
+                }
+              });
+              try {
                 clearTimeout(timeoutHandle);
-                this.port.postMessage({
-                  type: 'summary',
-                  content: {
-                    message: m.message,
-                    videoId: job.videoId
-                  }
-                });
-            }})  as string
-          this.port.postMessage({
-            type: 'summary',
-            content: {
-              message: result,
-              videoId: job.videoId
+              } catch (error) {
+                console.error(error);
+              }
+              await sleep(stopIntervalMs)
+            } catch (error) {
+              console.error(error);
+              this.port.postMessage({
+                type: 'error',
+                content: error.message
+              });
             }
-          });
-          try {
-            clearTimeout(timeoutHandle);
-          } catch (error) {
-            console.error(error);
+
           }
+
           try {
-            await summaryCache.setSummary(job.videoId,result)
+            await summaryCache.setSummary(job.videoId,resultSum)
           } catch (error) {
             console.error(error);
           }
@@ -248,7 +303,7 @@ class ChatgptConnector {
             await Browser.tabs.create({url: "https://chat.openai.com"})
         }
     }
-    async sendToChatgptPort(job: { type: string; videoId: string; subtitle: any[]; title: string; summaryTokenNumber: number; force: any; timeout: any; refreshToken: any; },port: Browser.Runtime.Port) {
+    async sendToChatgptPort(job: any,port: Browser.Runtime.Port) {
         if(job.type === 'login') {
             await this.connect()
             setTimeout(() => {
@@ -271,15 +326,19 @@ class ChatgptConnector {
                         })
                         return 0;
                     }
-
-                    const question = getPrompt(job.subtitle, job.title,  job.summaryTokenNumber)
+                    let setting = await store.getChatgptSetting()
+                    const stopIntervalMs = setting.stopIntervalMs || 500
+                    const questions =groupSubtitleByCount(job.subtitle,parseFloat(setting.stopCount)).map(x => {
+                      return getPrompt(x,parseInt(setting.words),parseFloat(setting.baseTime),parseFloat(setting.step),parseInt(setting.maxCount), parseInt(setting.minCount), parseInt(setting.count))
+                    })
                     this.ChatgptPort.postMessage({
                         type: 'getSummary',
-                        question,
+                        questions,
                         videoId: job.videoId,
                         force: job.force,
-                        timeout: job.timeout,
+                        timeout: parseInt(setting.timeout),
                         refreshToken: job.refreshToken,
+                        stopIntervalMs
                     })
                 } else {
                     this.ChatgptPort.postMessage(job)
@@ -299,13 +358,16 @@ class ChatgptConnector {
     }
     sendToBilibiliSummaryPort(port: Browser.Runtime.Port) {
         this.ChatgptPort = port;
+        port.postMessage({
+            type: 'connected'
+        })
         port.onMessage.addListener(async (job, port) => {
             if(this.BilibiliSummaryPort) {
-                if(job.type === 'summaryFinal') {
+                if(job.type === 'summaryFinalCache') {
                     await summaryCache.setSummary(job.content.videoId,job.content.message)
                     this.BilibiliSummaryPort.postMessage(job)
                 } else {
-                    this.BilibiliSummaryPort.postMessage(job)
+                  this.BilibiliSummaryPort.postMessage(job)
                 }
             }
         })

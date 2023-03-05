@@ -49,6 +49,8 @@ const startSubtitle = () => {
 urlChange(() => {
   store.summaryState = 'fetchable'
 })
+
+let preMessage = ''
 const handleBackgroundMessage = (result: { type: any; content: any; }) => {
   const { type, content } = result;
   if (type === 'summary') {
@@ -57,8 +59,14 @@ const handleBackgroundMessage = (result: { type: any; content: any; }) => {
       return;
     }
     store.summaryState = 'fetched'
-    store.summary = content.message;
+    store.summary = preMessage + content.message
     console.log('content-message', content.message)
+  } else if(type === 'summaryFinal') {
+    const videoId = getBVid(window.location.href)
+    if (videoId !== content.videoId) {
+      return;
+    }
+    preMessage += content.message
   } else if (type === 'error') {
     store.summaryState = content
   }

@@ -69,8 +69,13 @@ export function getSmallSizeTranscripts(newTextData: SubtitleItem[], oldTextData
   const byteLength = getByteLength(text);
   if(newTextData.length === 1 && byteLength > byteLimit) {
     const s = newTextData[0].text.split(' ').map((x, index) => ({ text: x, index: index }))
-    const filtedData = filterOddItem(s);
-    return getSmallSizeTranscripts(filtedData, s, byteLimit);
+    if(s.length >= 2) {
+      const filtedData = filterOddItem(s);
+      return getSmallSizeTranscripts(filtedData, s, byteLimit);
+    } else {
+      return newTextData[0].text;
+    }
+
   }
   if (byteLength > byteLimit ) {
     const filtedData = filterOddItem(newTextData);

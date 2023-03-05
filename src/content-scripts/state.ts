@@ -43,7 +43,7 @@ export const useStore = defineStore('store', {
             const stateMap = {
                 'unfetchable': {
                     'icon': 'warning-o',
-                    'tips': '抱歉无法解析当前视频',
+                    'tips': '抱歉,缺少字幕，无法解析当前视频',
                     'action': 'getSummary',
                     'class': ''
                 },
@@ -103,7 +103,7 @@ export const useStore = defineStore('store', {
                 },
                 'timeout': {
                     'icon': 'replay',
-                    'tips': `获取超时8分钟,点击图标重试获取${titleMap['Summary']}`,
+                    'tips': `获取超时,点击图标重试获取${titleMap['Summary']}`,
                     'action': 'forceSummary',
                     'class': ''
                 },
@@ -155,7 +155,7 @@ export const useStore = defineStore('store', {
             const videoId = getBVid(window.location.href)
             this.videoId = videoId
             const subtitle = await this.getSubtitle(videoId)
-            if(!subtitle) { 
+            if(!subtitle || subtitle.length === 0) { 
                 this.summaryState = 'unfetchable'
                 return 0;
             }
@@ -166,8 +166,6 @@ export const useStore = defineStore('store', {
                     subtitle,
                     title: document.title,
                     refreshToken: type === 'forceSummaryWithNewToken' ? true : false,
-                    timeout: this[storage.metaKey].fetchTimeout,
-                    summaryTokenNumber: this[storage.metaKey].summaryToken,
                     force: (type === 'forceSummary') || (type === 'forceSummaryWithNewToken') ? true : false,
                 })
                 this.summaryState  = 'fetching'

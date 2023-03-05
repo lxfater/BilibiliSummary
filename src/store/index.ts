@@ -9,15 +9,33 @@ export class ExtensionStorage {
             clickSubtitle: false,
             autoFetch: false,
             summaryToken: 20,
-            fetchTimeout: 8,
             providerType: 'ChatgptWeb',
             shareCache: true,
             OpenaiSetting: {
                 apiKey: '',
                 model: 'gpt-3.5-turbo',
                 maxTokens: 200,
+                words:1000,
+                baseTime: 5,
+                step: 0.1,
+                maxCount:8,
+                minCount: 5,
+                count: 30,
+                timeout: 8,
+                stopCount: 8000,
+                stopIntervalMs: 150  
             },
-            ChatgptWebSetting: {}
+            ChatgptWebSetting: {
+                words:1000,
+                baseTime: 5,
+                step: 0.1,
+                maxCount:8,
+                minCount: 5,
+                count: 30,
+                timeout: 8,
+                stopCount: 8000,
+                stopIntervalMs: 200 
+            }
         }
     }
     async getMetaKey() {

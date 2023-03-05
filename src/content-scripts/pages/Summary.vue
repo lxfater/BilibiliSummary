@@ -82,7 +82,6 @@ const formatTime = (time: number) => {
             margin-bottom: 5px;
             background-color: #f1f3f6;
             border-radius: 5px;
-            user-select: none; 
             &:hover {
                 background-color: #e5e5e5;
             }
