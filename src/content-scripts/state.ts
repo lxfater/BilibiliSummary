@@ -9,6 +9,8 @@ import { ExtensionStorage } from  '../store/index'
 export const storage = new ExtensionStorage()
 type SummaryState = 'reFetchable' | 'fetchable' | 'fetching' | 'unfetchable' | 'fetched' | 'tooManyRequests' | 'unauthorized' | 'notFound' | 'unknown' | 'cloudFlare' | 'onlyOne' | 'timeout' | 'canced'
 type State = {
+    free: boolean,
+    preMessage: string,
     videoId: string,
     subtitle: Body[],
     summary: string,
@@ -17,6 +19,8 @@ type State = {
 }
 export const useStore = defineStore('store', {
     state: () : State => ({
+        free: true,
+        preMessage: '',
         videoId: '',
         subtitle: [],
         summary: '',
@@ -112,6 +116,12 @@ export const useStore = defineStore('store', {
                     'tips': `取消成功,点击图标重试获取${titleMap['Summary']}`,
                     'action': 'forceSummary',
                     'class': ''
+                },
+                "rateLimit": {
+                    'icon': 'warning-o',
+                    'tips': `超出使用额度，请换号，或者过一段时间(1小时？)再试`,
+                    'action':'e',
+                    'class': ''
                 }
             }
             return stateMap[state.summaryState as keyof typeof stateMap]
@@ -151,7 +161,8 @@ export const useStore = defineStore('store', {
             await this.summaryWithType('getSummary')
         },
         async summaryWithType(type:string) {
-            console.log(type)
+            this.free = false;
+            this.preMessage = ''
             const videoId = getBVid(window.location.href)
             this.videoId = videoId
             const subtitle = await this.getSubtitle(videoId)
@@ -186,6 +197,7 @@ export const useStore = defineStore('store', {
             })
         },
         cancel() {
+            this.preMessage = ''
             port.postMessage({
                 type: 'cancel'
             })
@@ -212,6 +224,9 @@ export const useStore = defineStore('store', {
             const videoId = getBVid(window.location.href)
             this.videoId = videoId
             await Browser.storage.local.remove(videoId)
+        },
+        e() {
+            console.log('e')
         }
     }
 })

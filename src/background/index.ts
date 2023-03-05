@@ -228,18 +228,23 @@ class OpenaiProvider {
           })
           let resultSum = ''
           for await (const question of questions) {
+            if(this.lastController.signal.aborted) {
+              break;
+            }
             try {
               let result = await this.openai.ask(question,{
                 signal: this.lastController!.signal,
                 onMessage: (m) => {
                     clearTimeout(timeoutHandle);
-                    this.port.postMessage({
-                      type: 'summary',
-                      content: {
-                        message: m.message,
-                        videoId: job.videoId
-                      }
-                    });
+                    if(!this.lastController?.signal.aborted) {
+                      this.port.postMessage({
+                        type: 'summary',
+                        content: {
+                          message: m.message,
+                          videoId: job.videoId
+                        }
+                      });
+                    }
                 }})  as string
               resultSum += result
               this.port.postMessage({
@@ -267,6 +272,17 @@ class OpenaiProvider {
 
           try {
             await summaryCache.setSummary(job.videoId,resultSum)
+          } catch (error) {
+            console.error(error);
+          }
+          try {
+            this.port.postMessage({
+              type: 'summaryFinalCache',
+              content: {
+                message: resultSum,
+                videoId: job.videoId
+              }
+            });
           } catch (error) {
             console.error(error);
           }

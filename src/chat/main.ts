@@ -64,6 +64,9 @@ class ChatgptProvider {
           const timeoutHandle = this.timeout(timeoutThreshold);
           let resultSum = ''
           for await (const question of job.questions) {
+            if(this.lastController.signal.aborted) {
+              break;
+            }
             try {
               let result = await chatGptWebProvider.ask(question, {
                 deleteConversation: true,
@@ -71,13 +74,16 @@ class ChatgptProvider {
                 refreshToken: job.refreshToken,
                 onMessage: (m) => {
                   clearTimeout(timeoutHandle);
-                  port.postMessage({
-                    type: 'summary',
-                    content: {
-                      message: m.message,
-                      videoId: job.videoId
-                    }
-                  });
+                  if(!this.lastController!.signal.aborted) {
+                    port.postMessage({
+                      type: 'summary',
+                      content: {
+                        message: m.message,
+                        videoId: job.videoId
+                      }
+                    });
+                  }
+
                 }
               });
               resultSum += result

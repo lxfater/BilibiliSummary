@@ -45,12 +45,12 @@ const startSubtitle = () => {
     }, 500)
   }
 }
-
 urlChange(() => {
   store.summaryState = 'fetchable'
+  store.preMessage = ''
 })
 
-let preMessage = ''
+
 const handleBackgroundMessage = (result: { type: any; content: any; }) => {
   const { type, content } = result;
   if (type === 'summary') {
@@ -59,16 +59,18 @@ const handleBackgroundMessage = (result: { type: any; content: any; }) => {
       return;
     }
     store.summaryState = 'fetched'
-    store.summary = preMessage + content.message
+    store.summary = store.preMessage + content.message
     console.log('content-message', content.message)
   } else if(type === 'summaryFinal') {
     const videoId = getBVid(window.location.href)
     if (videoId !== content.videoId) {
       return;
     }
-    preMessage += content.message
+    store.preMessage += content.message
   } else if (type === 'error') {
     store.summaryState = content
+  } else if (type === 'summaryFinalCache') {
+    store.free = true
   }
 }
 const handleMessage = (event: { data: { type: string; content: string; }; }) => {
@@ -105,6 +107,12 @@ const openOptions = () => {
     }
   })
 }
+
+const retry = () => {
+  if(store.free) {
+    store.forceSummary()
+  }
+}
 </script>
 <template>
   <div>
@@ -114,8 +122,8 @@ const openOptions = () => {
         <div class="text">Summary for Bilibili</div>
       </div>
       <div class="action">
-        <van-icon name="exchange" size="22" :color="`${iconColor('Summary')}`" @click="to('Summary')" />
-        <van-icon name="setting-o" size="22" :color="`${iconColor('Setting')}`" @click="openOptions" />
+        <van-icon name="revoke" size="22" :style="`cursor: ${store.free ? '': 'not-allowed'}`"  :color="store.free ? '#fb7299' : '#000'"  @click="retry" />
+        <van-icon name="setting-o" size="22" color="#00aeec" @click="openOptions" />
       </div>
     </div>
     <div class="container">
@@ -154,6 +162,7 @@ const openOptions = () => {
     display: flex;
     width: 100px;
     justify-content: space-evenly;
+    cursor: pointer;
   }
 }
 
