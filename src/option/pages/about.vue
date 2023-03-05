@@ -7,7 +7,7 @@
       前端程序员，技术涉猎比较广泛，目前小公司开发Electron应用，详细可以看我GitHub。希望35之前能构建好被动收入。为此努力学习投资，开发自己的产品。
     </div>
     <div class="card">
-      <a href="https://github.com/lxfater" target="_blank">github地址</a>
+      <a href="https://github.com/lxfater" target="_blank">github地址，欢迎star</a>
     </div>
     <div class="card">
       <a href="https://twitter.com/lxfater" target="_blank">twitter地址</a>
