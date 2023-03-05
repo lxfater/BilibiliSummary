@@ -21,7 +21,7 @@ const options = [{
       <p>{{`合并基准时间${store.meta.OpenaiSetting.baseTime}分钟，步长${store.meta.OpenaiSetting.step}分钟。每次压缩到${store.meta.OpenaiSetting.count}次就放弃压缩。`  }}</p>
       <p>{{`超时时间${store.meta.OpenaiSetting.timeout}分钟，自动取消请求。`  }}</p>
       <p>{{`最大token数${store.meta.OpenaiSetting.maxTokens}代表返回答案长度。`  }}</p>
-      <p>需要输入apikey,选择模型使用。</p>
+      <p>需要输入apikey,选择模型使用, <span style="color:red;">费用较高，谨慎使用</span>。</p>
     </div>
     <el-form label-width="200px" label-position="left">
       <el-form-item label="APIKEY">

@@ -10,6 +10,7 @@ const store = useStore()
       <p>{{`生成${store.meta.ChatgptWebSetting.minCount}到${store.meta.ChatgptWebSetting.maxCount}个要点。`  }}</p>
       <p>{{`合并基准时间${store.meta.ChatgptWebSetting.baseTime}分钟，步长${store.meta.ChatgptWebSetting.step}分钟。每次压缩到${store.meta.ChatgptWebSetting.count}次就放弃压缩。`  }}</p>
       <p>{{`超时时间${store.meta.ChatgptWebSetting.timeout}分钟，自动取消请求。`  }}</p>
+      <p><span style="color:red;">一个小时内有限额，用超需要等一个小时，我不能排除封号危险，建议使用小号。</span></p>
     </div>
      <el-form label-width="200px" label-position="left">
       <el-form-item label="多少个字触发一次发送">
