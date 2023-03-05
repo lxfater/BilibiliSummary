@@ -220,6 +220,13 @@ class OpenaiProvider {
           }
           this.lastController = new AbortController();
           let setting = await store.getOpenaiSetting()
+          if(!setting.apiKey) {
+            this.port.postMessage({
+              type: 'error',
+              content: 'emptyApiKey'
+            });
+            return 0;
+          }
           const timeoutThreshold = setting.timeout * 30 * 1000;
           const timeoutHandle = this.timeout(timeoutThreshold);
           const stopIntervalMs = setting.stopIntervalMs || 500

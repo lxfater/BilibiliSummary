@@ -122,6 +122,12 @@ export const useStore = defineStore('store', {
                     'tips': `超出使用额度，请换号，或者过一段时间(1小时？)再试`,
                     'action':'e',
                     'class': ''
+                },
+                'emptyApiKey': {
+                    'icon': 'replay',
+                    'tips': `请先设置API Key,然后再点击重试`,
+                    'action':'forceSummary',
+                    'class': ''
                 }
             }
             return stateMap[state.summaryState as keyof typeof stateMap]
