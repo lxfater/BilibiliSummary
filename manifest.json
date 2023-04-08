@@ -1,23 +1,38 @@
 {
     "manifest_version": 3,
-    "name": "BilibiliSummary",
+    "name": "Summary for Bilibili",
     "version": "1.0.0",
-    "action": { "default_popup": "index.html" },
+    "icons": {
+      "16": "logo.png",
+      "32": "logo.png",
+      "48": "logo.png",
+      "128": "logo.png"
+    },
     "host_permissions": ["https://*.openai.com/"],
     "content_scripts": [
       {
         "matches": ["https://www.bilibili.com/video/*"],
-        "js": ["src/document_start.ts"],
+        "js": ["src/inject/injecter.ts"],
         "run_at": "document_start"
       },
       {
         "matches": [ "https://www.bilibili.com/video/*" ],
-        "js": [ "src/content-scripts/content.ts"],
-        "run_at": "document_start"
+        "js": [ "src/content-scripts/main.ts"],
+        "run_at": "document_idle"
+      },
+      {
+        "matches": [ "https://chat.openai.com/chat" ],
+        "js": [ "src/chat/main.ts"],
+        "run_at": "document_idle"
       }
     ],
+    "options_page": "option.html",
+    "permissions": [
+      "unlimitedStorage",
+      "storage"
+    ],
     "background": {
-      "service_worker": "src/background.ts",
+      "service_worker": "src/background/index.ts",
       "type": "module"
     }
   }

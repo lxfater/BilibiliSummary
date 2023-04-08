@@ -10,11 +10,23 @@ export interface SubTitle {
     body: Body[]
 }
 export interface Body {
-from: number
-to: number
-sid: number
-location: number
-content: string
-music: number
+    from: number
+    to: number
+    sid: number
+    location: number
+    content: string
+    music: number
 }
-  
+
+export type Job =  {
+    type: 'getSummary' | 'getGpt3Summary' | 'forceSummaryWithNewToken' | 'cancel'
+    videoId: string
+    subtitle: SubTitle
+    title: string
+    summaryTokenNumber?: number
+    refreshToken?: boolean
+    force?: boolean
+    timeout?: number
+}
+
+export type PortName = 'CHATGPT' | 'BILIBILISUMMARY'

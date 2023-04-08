@@ -1,3 +1,4 @@
+//@ts-ignore
 import mainWorld from './main-world?script&module'
 import Browser from 'webextension-polyfill'
 const script = document.createElement('script')

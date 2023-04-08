@@ -1,178 +1,178 @@
 <script setup lang="ts">
-import { SubTitle, Body } from '../types'
 import { ref, onMounted, computed } from 'vue'
-import Browser from 'webextension-polyfill'
-const port = Browser.runtime.connect({name: 'BilibiliSUMMARY'})
-const content = ref('点击总结按钮开始总结')
-const subtitle = ref<Body[]>([])
-const contentStyle = ref('tips');
+import Setting from './pages/Setting.vue';
+import Help from './pages/Help.vue';
+import Subtitle from './pages/Subtitle.vue';
+import Summary from './pages/Summary.vue';
+import { titleMap } from './lang'
+import { getBVid, urlChange } from './utils'
+import { useStore, storage } from './state';
+import { port } from './utils';
+import Browser from 'webextension-polyfill';
+import { SubTitle } from '../types';
+import logo from "../../logo.png"
+const components = {
+  Summary,
+  Setting,
+  Help,
+  Subtitle
+}
+const curretView = ref('Summary')
+const to = (path: string) => {
+  curretView.value = path
+}
+const store = useStore();
 
+
+const title = computed(() => {
+  return titleMap[curretView.value as keyof typeof titleMap]
+})
+const iconColor = (path: string) => {
+  if (path === curretView.value) {
+    return '#1989fa'
+  } else {
+    return '#000'
+  }
+}
 const startSubtitle = () => {
   const el = document.querySelector('#bilibili-player > div > div > div.bpx-player-primary-area > div.bpx-player-video-area > div.bpx-player-control-wrap > div.bpx-player-control-entity > div.bpx-player-control-bottom > div.bpx-player-control-bottom-right > div.bpx-player-ctrl-btn.bpx-player-ctrl-subtitle > div.bpx-player-ctrl-btn-icon > span')
-  //@ts-ignore
-  el.click()
-  setTimeout(() => {
+  if (el) {
     //@ts-ignore
-    el.click()
-  },500)
+    el.click() 
+    setTimeout(() => {
+      //@ts-ignore
+      el.click()
+    }, 500)
+  }
 }
-onMounted(() => {
-  window.addEventListener('message', function(event) {
-    console.log('content-scripts', event.data)
-    if (event.data.type === 'getSummary') {
-       let data = JSON.parse(event.data.content) as SubTitle
-       subtitle.value = data.body
-    }
-  });
-  port.onMessage.addListener((result) => {
-    const { type, content: answer} = result;
-    if (type === 'summary') {
-      content.value = answer;
-      contentStyle.value = 'summary'
-    } else if( type === 'error') {
-      contentStyle.value = 'tips'
-      content.value = '发生错误，可能是一下情况。无api权限, 需要登录chatgpt,然后刷新页面;chatgpt限制了50次/hour,需要等待。'
-    }
-  })
-
-  setTimeout(() => {
-    startSubtitle()
-  }, 1000)
+urlChange(() => {
+  store.summaryState = 'fetchable'
+  store.preMessage = ''
 })
 
-const summary = () => {
-  content.value = '取消之前的任务，正在总结中...'
-  contentStyle.value = 'tips'
-  startSubtitle()
-  setTimeout(() => {
-    port.postMessage({
-      type: 'getSummary',
-      content: subtitle.value,
-      title: document.title
-    })
-  }, 1000)
+
+const handleBackgroundMessage = (result: { type: any; content: any; }) => {
+  const { type, content } = result;
+  if (type === 'summary') {
+    const videoId = getBVid(window.location.href)
+    if (videoId !== content.videoId) {
+      return;
+    }
+    store.summaryState = 'fetched'
+    store.summary = store.preMessage + content.message
+    console.log('content-message', content.message)
+  } else if(type === 'summaryFinal') {
+    const videoId = getBVid(window.location.href)
+    if (videoId !== content.videoId) {
+      return;
+    }
+    store.preMessage += content.message
+  } else if (type === 'error') {
+    store.summaryState = content
+  } else if (type === 'summaryFinalCache') {
+    store.free = true
+  }
+}
+const handleMessage = (event: { data: { type: string; content: string; }; }) => {
+    console.log('content-scripts', event.data)
+    if (event.data.type === 'getSummary') {
+      let data = JSON.parse(event.data.content) as SubTitle
+      store.subtitle= data.body
+    }
+}
+onMounted(async () => {
+  await store.loadMeta()
+  storage.onMetaKeyChange((meta) => {
+    //@ts-ignore
+    store[storage.metaKey] = meta
+  })
+  port.onMessage.addListener(handleBackgroundMessage)
+  window.addEventListener('message',handleMessage);
+  if (await store.getClickSubtitle()) {
+    setTimeout(() => {
+      startSubtitle()
+    }, 800)
+  }
+  //@ts-ignore
+  if (store[storage.metaKey].autoFetch) {
+    store.forceSummary()
+  }
+})
+
+const openOptions = () => {
+  port.postMessage({
+    type: 'CommonService',
+    content: {
+      method:'openOptionsPage'
+    }
+  })
+}
+
+const retry = () => {
+  if(store.free) {
+    store.forceSummary()
+  }
 }
 </script>
 <template>
-  <div class="summary-container">
-    <div class="header">
-      <div class="main">
-        <div class="brand">
-          视频总结
-        </div>
-        <div class="actions">
-          <div class="action" @click="summary">总结</div>
-        </div>
+  <div>
+    <div class="bar">
+      <div class="icon">
+        <img :src="Browser.runtime.getURL(logo)">
+        <div class="text">Summary for Bilibili</div>
+      </div>
+      <div class="action">
+        <van-icon name="revoke" size="22" :style="`cursor: ${store.free ? '': 'not-allowed'}`"  :color="store.free ? '#fb7299' : '#000'"  @click="retry" />
+        <van-icon name="setting-o" size="22" color="#00aeec" @click="openOptions" />
       </div>
     </div>
-    <div class="warning">本功能频繁使用可能导致账户封禁，自己玩脱了,概不负责。怕的话用小号</div>
-    <div class="content">
-      <div :class="contentStyle">
-          {{ content }}
-      </div>
+    <div class="container">
+      <component :is="components[curretView as keyof typeof components]"></component>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
-.summary-container {
+.bar {
+  border: 2px solid #e5e5e5;
+  border-radius: 4px 4px 0 0;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
   justify-content: space-between;
   align-items: center;
-  width: auto;
-  background-color: #f1f2f3;
-  border-radius: 6px;
-  user-select: none;
-  .header {
+  flex-direction: row;
+
+  .icon {
     display: flex;
-    height: 52px;
-    width: 100%;
-    flex-direction: column;
-    align-content: center;
-    justify-content: space-between;
     align-items: center;
-    
-    .main {
-      display: flex;
-      width: 100%;
-      height: 100%;
-      flex-direction: row;
-      justify-content: space-between;
-      align-items: center;
-      .brand {
-      padding-left: 16px;
+    padding: 5px;
+
+    img {
+      width: 30px;
+      height: 30px;
+    }
+
+    .text {
       font-size: 16px;
-      font-weight: 500;
-      color: #18191c;
-
-      }
-      .actions {
-        padding-right: 17px;
-        cursor: pointer;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        .action {
-          //button-small-primary
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          height: 24px;
-          width: 50px;
-          border-radius: 4px;
-          background-color: #1f7fde;
-          margin-left: 16px;
-          font-size: 14px;
-          font-weight: 500;
-          color: #eeeff2;
-          cursor: pointer;
-          
-        }
-      }
-    }
-
-  }
-  .warning {
-      color: red;
-      font-size: 7px;
-      text-align: center;
-      width: 100%;
-      padding: 2px;
-      background-color: #fff;
-  }
-  .content {
-    display: flex;
-    width: 100%;
-    min-height: 50px;
-    max-height: 650px;
-    background-color: #fff;
-    overflow-y: auto;
-    .summary {
-      display: flex;
-      flex-direction: column;
-      padding: 10px;
-      width: 100%;
-      height: 100%;
-      font-size: 14px;
-      font-weight: 500;
-      color: #18191c;
-      overflow-y: auto;
-    }
-    .tips {
-      display: flex;
-      flex-direction: column;
-      padding: 10px;
-      width: 100%;
-      height: 100%;
-      font-size: 18px;
+      margin-left: 5px;
       font-weight: 700;
-      color: #18191c;
-      text-align: center;
     }
-
   }
 
+  .action {
+    display: flex;
+    width: 100px;
+    justify-content: space-evenly;
+    cursor: pointer;
+  }
 }
-</style>
+
+.container {
+  padding: 5px;
+  border-bottom: 2px solid #e5e5e5;
+  border-right: 2px solid #e5e5e5;
+  border-left: 2px solid #e5e5e5;
+  border-radius: 0 0 4px 4px;
+  min-height: 300px;
+  max-height: 500px;
+  margin-bottom: 10px;
+}</style>
