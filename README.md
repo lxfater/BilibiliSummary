@@ -1,4 +1,5 @@
 # BilibiliSummary
+![运行截图](https://raw.githubusercontent.com/lxfater/BilibiliSummary/main/screenShot/logo.jpg)
 ## Introduction
 BilibiliSummary is a Chrome extension that helps you summarize videos on Bilibili.
 
@@ -6,6 +7,8 @@ Do you ever feel tired when watching long videos and wish you could quickly unde
 
 ## How to Use
 Log in to Bilibili, click on a video, and then click the BilibiliSummary icon to start generating a video summary. Our extension will analyze the video content within 5 seconds and generate a short but detailed video summary, telling you the main content and key points of the video. You can choose to watch the entire video or just quickly browse the summary according to your needs.
+
+Chrome store: https://chrome.google.com/webstore/detail/summary-for-bilibili/hjjdhgophcjfgkempifgiflgekhecnme?hl=ch
 
 ### Notes
 Do not close the ChatGPT tab, as this will interrupt your service.
